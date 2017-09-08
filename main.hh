@@ -18,8 +18,10 @@ public slots:
 
 private:
 	QTextEdit *textview;
-	QLineEdit *textline;
+	QTextEdit *textline;
 };
+
+
 
 class NetSocket : public QUdpSocket
 {
