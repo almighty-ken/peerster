@@ -1,10 +1,13 @@
-
 #include <unistd.h>
+#include <stdlib.h>
+#include <string>
+#include <time.h>
 
 #include <QVBoxLayout>
 #include <QApplication>
 #include <QDebug>
 #include <QKeyEvent>
+#include <QVariant>
 
 #include "main.hh"
 
@@ -24,8 +27,10 @@ ChatDialog::ChatDialog()
 	// You might change this into a read/write QTextEdit,
 	// so that the user can easily enter multi-line messages.
 	
-	// textline = new QLineEdit(this);
-	textline = new MessageInput();
+	textline = new QTextEdit(this);
+
+	// A button for sending out a message
+	textsend = new QPushButton("Send Message",this);
 
 	// Lay out the widgets to appear in the main window.
 	// For Qt widget and layout concepts see:
@@ -33,64 +38,33 @@ ChatDialog::ChatDialog()
 	QVBoxLayout *layout = new QVBoxLayout();
 	layout->addWidget(textview);
 	layout->addWidget(textline);
+	layout->addWidget(textsend);
 	textline->setFocus();
 	setLayout(layout);
 
 	// Register a callback on the textline's returnPressed signal
 	// so that we can send the message entered by the user.
-	connect(textline, SIGNAL(returnPressed()),
+	connect(textsend, SIGNAL(clicked()),
 		this, SLOT(gotReturnPressed()));
-}
-
-void MessageInput::keyPressEvent(QKeyEvent *event){
-	if (event->key() == Qt::Key_Return)
-        {
-            // ChatDialog::gotReturnPressed();
-            qDebug() << "FIX: send message to other peers: " << textline->toPlainText();
-        }
-        else
-        {
-            QTextEdit::keyPressEvent(event);
-        }
 }
 
 void ChatDialog::gotReturnPressed()
 {
 	// Initially, just echo the string locally.
 	// Insert some networking code here...
-	qDebug() << "FIX: send message to other peers: " << textline->toPlainText();
-	textview->append(textline->toPlainText());
+	// should emit a message containing the message to GNode class
+	QString message = textline->toPlainText();
+	qDebug() << "[ChatDialog::gotReturnPressed]emitted message: " << message;
+	// textview->append(message);
+	emit send_message(message);
 
 	// Clear the textline to get ready for the next input message.
 	textline->clear();
 }
 
-NetSocket::NetSocket()
-{
-	// Pick a range of four UDP ports to try to allocate by default,
-	// computed based on my Unix user ID.
-	// This makes it trivial for up to four Peerster instances per user
-	// to find each other on the same host,
-	// barring UDP port conflicts with other applications
-	// (which are quite possible).
-	// We use the range from 32768 to 49151 for this purpose.
-	myPortMin = 32768 + (getuid() % 4096)*4;
-	myPortMax = myPortMin + 3;
-}
-
-bool NetSocket::bind()
-{
-	// Try to bind to each of the range myPortMin..myPortMax in turn.
-	for (int p = myPortMin; p <= myPortMax; p++) {
-		if (QUdpSocket::bind(p)) {
-			qDebug() << "bound to UDP port " << p;
-			return true;
-		}
-	}
-
-	qDebug() << "Oops, no ports in my default range " << myPortMin
-		<< "-" << myPortMax << " available";
-	return false;
+void ChatDialog::received_from_UDP(QString message){
+	textview->append(message);
+	qDebug() << "[ChatDialog::received_from_UDP]received message and added to chatlog: " << message;
 }
 
 int main(int argc, char **argv)
@@ -103,9 +77,17 @@ int main(int argc, char **argv)
 	dialog.show();
 
 	// Create a UDP network socket
-	NetSocket sock;
-	if (!sock.bind())
+	GNode gnode;
+	if (!gnode.bind())
 		exit(1);
+
+	// connect the send_message signal to the received_message2send slot
+	QObject::connect(&dialog, SIGNAL(send_message(QString)),&gnode, 
+		SLOT(received_message2send(QString)));
+
+	// connect the received_message signal from GNode to slot in ChatDialog
+	QObject::connect(&gnode, SIGNAL(send_message2Dialog(QString)),
+		&dialog,SLOT(received_from_UDP(QString)));
 
 	// Enter the Qt main loop; everything else is event driven
 	return app.exec();
