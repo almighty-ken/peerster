@@ -72,7 +72,7 @@ void ChatDialog::addPeerPressed()
 	emit add_peer(p);
 
 	// Clear the textline to get ready for the next input message.
-	textline->clear();
+	peerline->clear();
 }
 
 void ChatDialog::gotReturnPressed()

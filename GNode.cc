@@ -33,6 +33,7 @@ GNode::GNode(){
 	connect(this,SIGNAL(readyRead()),
 		this,SLOT(received_UDP_message()));
 	connect(&entropy_timer,SIGNAL(timeout()),this,SLOT(entropy_message()));
+	connect(&entropy_timer,SIGNAL(timeout()),this,SLOT(check_waitlist()));
 }
 
 void GNode::learn_peer(QHostAddress addr, quint16 port){
@@ -204,6 +205,8 @@ void GNode::add2DB(QMap<QString, QVariant> message){
 
 void GNode::random_send(QByteArray data){
 	// randomly choose a peer from peer list
+	if(peer_list.length()==0)
+		return;
 	int idx = rand() % peer_list.length();
 	send_messageUDP(data,peer_list[idx]->host_addr,peer_list[idx]->host_port);
 
@@ -227,14 +230,14 @@ void GNode::send_messageUDP(QByteArray data, QHostAddress addr, quint16 port){
 	p.second = data;
 	confirm_waitlist[source].enqueue(p);
 	// set timer to trigger waitlist manager
-	QTimer::singleShot(5000,this,SLOT(check_waitlist()));
+	// QTimer::singleShot(5000,this,SLOT(check_waitlist()));
 }
 
 void GNode::update_waitlist(QHostAddress addr, quint16 port){
 	QPair<QString,quint16> source;
 	source.first = addr.toString();
 	source.second = port;
-	if(confirm_waitlist.contains(source) && !confirm_waitlist[source].isEmpty()){
+	while(confirm_waitlist.contains(source) && !confirm_waitlist[source].isEmpty()){
 		confirm_waitlist[source].dequeue();
 	}
 }
@@ -259,6 +262,7 @@ void GNode::check_waitlist(){
 				<< source.second << " overdue and is being resent";
 				send_messageUDP(data,QHostAddress(source.first),source.second);
 			}
+			// clear queue
 		}
 		i++;
 	}
@@ -272,7 +276,7 @@ void GNode::SerializeSend_message(QMap<QString, QVariant> map,
 		(*stream) << map;
 	}
 	send_messageUDP(data,addr,port);
-	// qDebug() << "Message sent to addr: " << addr << port;
+	qDebug() << "Message sent to addr: " << addr << port;
 }
 
 void GNode::received_message2send(QString message){
@@ -299,8 +303,13 @@ void GNode::add_peer_from_dialog(QString source){
 
 bool GNode::bind(){
 	// add peers from command line
+	bool noDefaultPeer = false;
 	QStringList args = QCoreApplication::arguments();
 	for(int i=1; i<args.length(); i++){
+		if(args.at(i)=="-nopeer"){
+			noDefaultPeer = true;
+			continue;
+		}
 		Peer *new_peer = new Peer();
 		new_peer->insert(args.at(i));
 		peer_list.append(new_peer);
@@ -315,6 +324,8 @@ bool GNode::bind(){
 				if(p==myPort)
 					continue;
 				// add this port to peer
+				if(noDefaultPeer)
+					continue;
 				Peer *new_peer = new Peer();
 				new_peer->insert(QHostAddress::LocalHost,p);
 				peer_list.append(new_peer);
