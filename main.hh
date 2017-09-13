@@ -2,6 +2,7 @@
 #define PEERSTER_MAIN_HH
 
 #include <QDialog>
+#include <QApplication>
 #include <QTextEdit>
 #include <QLineEdit>
 #include <QUdpSocket>
@@ -29,9 +30,11 @@ public:
 public slots:
 	void gotReturnPressed();
 	void received_from_UDP(QString message);
+	void addPeerPressed();
 
 signals:
 	void send_message(QString message);
+	void add_peer(QString source);
 
 private:
 	QTextEdit *textview;
@@ -48,8 +51,10 @@ public:
 	QString host_name;
 	QHostAddress host_addr;
 	quint16 host_port;
+	bool active;
 
 	void insert(QString);
+	void insert(QHostAddress,quint16);
 
 public slots:
 	void looked_up_ip(QHostInfo);
@@ -77,6 +82,7 @@ public slots:
 	void received_UDP_message();
 	void check_waitlist();
 	void entropy_message();
+	void add_peer_from_dialog(QString source);
 
 signals:
 	void send_message2Dialog(QString message);
@@ -99,6 +105,7 @@ private:
 	QMap<QString,QVariant> build_status();
 	void process_status(QMap<QString,QVariant>, QHostAddress, quint16);
 	void update_waitlist(QHostAddress, quint16);
+	void learn_peer(QHostAddress, quint16);
 
 };
 

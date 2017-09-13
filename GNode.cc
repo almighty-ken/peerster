@@ -35,6 +35,19 @@ GNode::GNode(){
 	connect(&entropy_timer,SIGNAL(timeout()),this,SLOT(entropy_message()));
 }
 
+void GNode::learn_peer(QHostAddress addr, quint16 port){
+	// go through list
+	for(int i=0; i<peer_list.length(); i++){
+		if(peer_list[i].host_addr == addr && peer_list[i].host_port == port)
+			return;
+	}
+	// add peer
+	Peer new_peer;
+	new_peer.insert(addr,port);
+	peer_list.append(new_peer);
+	qDebug() << "[GNode::learn_peer]New peer auto added";
+}
+
 void GNode::received_UDP_message(){
 	// qDebug() << "Message from UDP waiting:";
 	QByteArray datagram;
@@ -44,6 +57,9 @@ void GNode::received_UDP_message(){
 	datagram.resize(QUdpSocket::pendingDatagramSize());
 	// if we wish to record down the source of the message we can also do it here
 	QUdpSocket::readDatagram(datagram.data(),datagram.size(),&address,&port);
+
+	// learn peer here
+	learn_peer(address,port);
 	// now we should deserialize the message
 	{
 		QDataStream * stream = new QDataStream(&datagram, QIODevice::ReadOnly);
@@ -280,13 +296,34 @@ void GNode::received_message2send(QString message){
 	message_sequence++;
 }
 
+void GNode::add_peer_from_dialog(QString source){
+	Peer new_peer;
+	new_peer.insert(source);
+	peer_list.append(new_peer);
+}
+
 bool GNode::bind(){
+	// add neighbors from command line
+	QStringList args = QCoreApplication::arguments();
+	for(int i=1; i<args.length(); i++){
+		Peer new_peer;
+		new_peer.insert(args.at(i));
+		peer_list.append(new_peer);
+	}
 	// Try to bind to each of the range myPortMin..myPortMax in turn.
 	for (int p = myPortMin; p <= myPortMax; p++) {
 		if (QUdpSocket::bind(p)) {
 			qDebug() << "[GNode::bind]bound to UDP port " << p;
 			myPort = p;
 			// build initial peer list
+			for (int p = myPortMin; p <= myPortMax; p++){
+				if(p==myPort)
+					continue;
+				// add this port to peer
+				Peer new_peer;
+				new_peer.insert(QHostAddress::LocalHost,p);
+				peer_list.append(new_peer);
+			}
 			return true;
 		}
 	}

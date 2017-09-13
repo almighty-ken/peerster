@@ -2,6 +2,7 @@
 #include "main.hh"
 
 void Peer::insert(QString source){
+	active = false;
 	QStringList parsed = source.split(":");
 	if(parsed.length() == 2){
 		QString first = parsed[0];
@@ -24,6 +25,13 @@ void Peer::insert(QString source){
 	qDebug() << "[Peer::insert] Bad address";
 }
 
+void Peer::insert(QHostAddress addr, quint16 port){
+	active = false;
+	host_addr = addr;
+	host_port = port;
+	QHostInfo::lookupHost(host_addr,this,SLOT(looked_up_name(QHostInfo)));
+}
+
 void Peer::looked_up_ip(QHostInfo info){
 	// get ip from info
 	if (host.error() != QHostInfo::NoError){
@@ -33,6 +41,7 @@ void Peer::looked_up_ip(QHostInfo info){
     foreach (const QHostAddress &address, host.addresses()){
     	host_addr = address;
 		qDebug() << "[Peer::looked_up_ip]Found address:" << address.toString();
+		active = true;
     }	
 }
 
@@ -44,4 +53,5 @@ void Peer::looked_up_name(QHostInfo info){
 	}
 	host_name = host.hostName();
 	qDebug() << "[Peer::looked_up_name]Found name:" << host_name;
+	active = true;
 }

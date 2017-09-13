@@ -4,7 +4,7 @@
 #include <time.h>
 
 #include <QVBoxLayout>
-#include <QApplication>
+
 #include <QDebug>
 #include <QKeyEvent>
 #include <QVariant>
@@ -32,10 +32,18 @@ ChatDialog::ChatDialog()
 	// A button for sending out a message
 	textsend = new QPushButton("Send Message",this);
 
+	// A textline for adding peers
+	peerline = new QLineEdit(this);
+
+	// A button for adding peers
+	peeradd = new QPushButton("Add peer",this);
+
 	// Lay out the widgets to appear in the main window.
 	// For Qt widget and layout concepts see:
 	// http://doc.qt.nokia.com/4.7-snapshot/widgets-and-layouts.html
 	QVBoxLayout *layout = new QVBoxLayout();
+	layout->addWidget(peerline);
+	layout->addWidget(peeradd);
 	layout->addWidget(textview);
 	layout->addWidget(textline);
 	layout->addWidget(textsend);
@@ -46,6 +54,25 @@ ChatDialog::ChatDialog()
 	// so that we can send the message entered by the user.
 	connect(textsend, SIGNAL(clicked()),
 		this, SLOT(gotReturnPressed()));
+
+	// Register a callback on the peeradd's returnPressed signal
+	// so that we can send the message entered by the user.
+	connect(peeradd, SIGNAL(clicked()),
+		this, SLOT(addPeerPressed()));
+}
+
+void ChatDialog::addPeerPressed()
+{
+	// Initially, just echo the string locally.
+	// Insert some networking code here...
+	// should emit a message containing the message to GNode class
+	QString p = peerline->toPlainText();
+	qDebug() << "[ChatDialog::addPeerPressed]" << p;
+
+	emit add_peer(p);
+
+	// Clear the textline to get ready for the next input message.
+	textline->clear();
 }
 
 void ChatDialog::gotReturnPressed()
@@ -88,6 +115,10 @@ int main(int argc, char **argv)
 	// connect the received_message signal from GNode to slot in ChatDialog
 	QObject::connect(&gnode, SIGNAL(send_message2Dialog(QString)),
 		&dialog,SLOT(received_from_UDP(QString)));
+
+	// connect the received_message signal from GNode to slot in ChatDialog
+	QObject::connect(&dialog, SIGNAL(add_peer(QString)),
+		&gnode,SLOT(add_peer_from_dialog(QString)));
 
 	// Enter the Qt main loop; everything else is event driven
 	return app.exec();
