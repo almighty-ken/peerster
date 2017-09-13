@@ -39,15 +39,18 @@ signals:
 private:
 	QTextEdit *textview;
 	QTextEdit *textline;
+	QLineEdit *peerline;
 	QPushButton *textsend;
+	QPushButton *peeradd;
 };
 
 
-class Peer : public QHostInfo
+class Peer : public QObject
 {
 	Q_OBJECT
 
 public:
+	Peer();
 	QString host_name;
 	QHostAddress host_addr;
 	quint16 host_port;
@@ -96,7 +99,7 @@ private:
 	QMap<QString,QMap<QString, QVariant>> messageDB;
 	QMap<QString,QVariant> statusDB;
 	QMap<QPair<QString,quint16>,QQueue<QPair<QTime,QByteArray>>> confirm_waitlist;
-	QList<Peer> peer_list;
+	QList<Peer*> peer_list;
 
 	bool inDB(QMap<QString, QVariant>);
 	void random_send(QByteArray);

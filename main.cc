@@ -66,7 +66,7 @@ void ChatDialog::addPeerPressed()
 	// Initially, just echo the string locally.
 	// Insert some networking code here...
 	// should emit a message containing the message to GNode class
-	QString p = peerline->toPlainText();
+	QString p = peerline->text();
 	qDebug() << "[ChatDialog::addPeerPressed]" << p;
 
 	emit add_peer(p);
