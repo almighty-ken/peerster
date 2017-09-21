@@ -103,6 +103,7 @@ private:
 
 	bool inDB(QMap<QString, QVariant>);
 	void random_send(QByteArray);
+	bool valid_rumor(QMap<QString,QVariant>);
 	void send_messageUDP(QByteArray, QHostAddress, quint16);
 	void add2DB(QMap<QString, QVariant>);
 	QMap<QString,QVariant> build_status();

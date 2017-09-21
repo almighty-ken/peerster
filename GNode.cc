@@ -81,6 +81,9 @@ void GNode::received_UDP_message(){
 		// now we should see if we already have the message
 		// if have seen, ignore, else start rumoring
 		qDebug() << "[GNode::received_UDP_message]Received rumor message:" << map_message;
+		if(!valid_rumor(map_message)){
+			return;
+		}
 		if(!inDB(map_message)){
 			
 			random_send(datagram);
@@ -95,6 +98,16 @@ void GNode::received_UDP_message(){
 		SerializeSend_message(build_status(),address,port);
 	}
 }
+
+bool GNode::valid_rumor(QMap<QString,QVariant> message){
+	if(message.contains("ChatText") && message.contains("Origin") && message.contains("SeqNo")){
+		return true;
+	}else{
+		qDebug() << "Received invalid rumor";
+		return false;
+	}
+}
+
 
 QMap<QString,QVariant> GNode::build_status(){
 	QMap<QString,QVariant> status;
