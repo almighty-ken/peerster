@@ -20,6 +20,7 @@ GNode::GNode(){
 	myPortMax = myPortMin + 3;
 	message_sequence = 0;
 
+
 	// generate a unique originID here
 	srand (time(NULL));
 	originID = QHostInfo::localHostName();
@@ -95,6 +96,9 @@ void GNode::received_UDP_message(){
 		// no matter in DB or not, we want to make sure statusDB is updated
 		add2DB(map_message);
 		// we should also use this message to update our router
+		if(router.is_new_origin(map_message)){
+			emit add_dm_target(map_message["Origin"].toString());
+		}
 		router.update_table(map_message,address,port);
 		// now we should reply a confirmation that we have received the message
 		qDebug() << "[GNode::received_UDP_message]Sending Confirmation...";
@@ -102,21 +106,42 @@ void GNode::received_UDP_message(){
 	}else if(message_type==2){
 		// this is a route rumor message
 		qDebug() << "[GNode::received_UDP_message]Received route message:" << map_message;
+		if(router.is_new_origin(map_message)){
+			emit add_dm_target(map_message["Origin"].toString());
+		}
 		router.update_table(map_message,address,port);
+		
+		// enabling random_send here can cause big traffic between two nodes
 		random_send(datagram);
+	}else if(message_type==3){
+		// this is a DM
+		qDebug() << "[GNode::received_UDP_message]Received direct message:" << map_message;
+		if(map_message["Dest"].toString()==originID){
+			// this is our message
+			emit send_message2Dialog(map_message["ChatText"].toString());
+		}else{
+			if(map_message["HopLimit"].toUInt()>0){
+				// forward the message
+				QString message_text = map_message["ChatText"].toString();
+				QString target = map_message["Dest"].toString();
+				quint32 limit = map_message["HopLimit"].toUInt()-1;
+				received_dm2send(target,message_text,limit);
+			}
+		}
 	}else{
 		qDebug() << "[GNode::received_UDP_message]Received invalid UDP message";
 	}
 }
 
 int GNode::check_message_type(QMap<QString,QVariant> message){
-	if(map_message.contains("Want"))
+	if(message.contains("Want"))
 		return 0;
-	else if(message.contains("ChatText") && message.contains("Origin") && message.contains("SeqNo"))
+	else if((message.contains("ChatText") && message.contains("Origin")) && message.contains("SeqNo"))
 		return 1;
-	else if(message.contains("Origin") && message.contains("SeqNo")){
+	else if(message.contains("Origin") && message.contains("SeqNo"))
 		return 2;
-	}
+	else if((message.contains("Origin") && message.contains("Dest")) && message.contains("HopLimit"))
+		return 3;
 	return -1;
 }
 
@@ -214,18 +239,35 @@ void GNode::add2DB(QMap<QString, QVariant> message){
 		if(statusDB[origin].toInt()==message["SeqNo"].toInt()){
 			statusDB.insert(origin,QVariant(statusDB[origin].toInt()+1));
 			qDebug() << "[GNode::add2DB]Can increase status";
+		}else{
+			qDebug() << "[GNode::add2DB]Not sequential message";
 		}
-		qDebug() << "[GNode::add2DB]Not sequential message";
 	}
-		else if(message["SeqNo"].toInt()==0){
+	else if(message["SeqNo"].toInt()==0){
 		statusDB.insert(origin,QVariant(1));
-		qDebug() << "[GNode::add2DB]Write 1 for DB";
-	}
-		else{
+		// qDebug() << "[GNode::add2DB]Write 1 for DB";
+	}else{
 		statusDB.insert(origin,QVariant(0));
 		qDebug() << "[GNode::add2DB]New Message Source";
 	}
 	qDebug() << "[GNode::add2DB]Added to DB:" << key;
+}
+
+void GNode::received_dm2send(QString target,QString message,quint32 hop){
+	// this supports sending dm through route table
+	// qDebug() << target << message;
+	QMap<QString, QVariant> map_message;
+	map_message[QString("Dest")] = QVariant(target);
+	map_message[QString("Origin")] = QVariant(originID);
+	map_message[QString("HopLimit")] = QVariant(hop);
+	map_message[QString("ChatText")] = QVariant(message);
+
+	QHash<QString,QVariant> entry;
+	entry = router.retrieve_info(target);
+	QHostAddress ip = QHostAddress(entry["IP"].toString());
+	quint16 port = entry["port"].toUInt();
+
+	SerializeSend_message(map_message,ip,port);
 }
 
 void GNode::send_route_rumour(){
@@ -239,9 +281,9 @@ void GNode::send_route_rumour(){
 	QByteArray data;
 	{
 		QDataStream * stream = new QDataStream(&data, QIODevice::WriteOnly);
-		(*stream) << map;
+		(*stream) << map_message;
 	}
-	qDebug() << "[GNode::send_route_rumour]Route Rumor Generated"
+	qDebug() << "[GNode::send_route_rumour]Route Rumor Generated";
 	random_send(data);
 }
 
@@ -250,6 +292,10 @@ void GNode::random_send(QByteArray data){
 	if(peer_list.length()==0)
 		return;
 	int idx = rand() % peer_list.length();
+	if((rand()%3)==1){
+		// stop forwarding randomly
+		return;
+	}
 	send_messageUDP(data,peer_list[idx]->host_addr,peer_list[idx]->host_port);
 
 	qDebug() << "[GNode::random_send]Message sent to " << peer_list[idx]->host_addr 

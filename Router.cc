@@ -9,7 +9,7 @@
 #include "main.hh"
 
 Router::Router(){
-	QDebug() << "Router initiated";
+	qDebug() << "[Router::Router]Router initiated";
 }
 
 // QHash<QString,QHash<QString,QVariant>> routing_table;
@@ -20,28 +20,42 @@ void Router::update_table(QMap<QString, QVariant> message,QHostAddress ip,quint1
 
 	if(routing_table.contains(origin)){
 		// we see if the info in DB is older
-		if(routing_table[origin]["SeqNo"].toInt() < sequence){
+		if(routing_table[origin]["SeqNo"].toUInt() < sequence){
 			// update info
-			routing_table[origin]["IP"] = QVariant(ip);
+			// here ip is first converted into string to be converted into qvariant
+			// qDebug() << "Update router entry";
+			routing_table[origin]["IP"] = QVariant(ip.toString());
 			routing_table[origin]["port"] = QVariant(port);
 			routing_table[origin]["SeqNo"] = QVariant(sequence);
 		}
 	}else{
 		// new entry
+		// qDebug() << "New router entry";
 		QHash<QString,QVariant> entry;
-		entry["IP"] = QVariant(ip);
+		entry["IP"] = QVariant(ip.toString());
 		entry["port"] = QVariant(port);
 		entry["SeqNo"] = QVariant(sequence);
 		routing_table[origin] = entry;
 	}
-	QDebug() << "[Router::update_table]Updated router table";
+	qDebug() << "[Router::update_table]Updated router table";
+	qDebug() << routing_table;
 
+}
+
+bool Router::is_new_origin(QMap<QString, QVariant> message){
+	QString origin = message["Origin"].toString();
+	if(routing_table.contains(origin)){
+		return false;
+	}
+	return true;
 }
 
 QHash<QString,QVariant> Router::retrieve_info(QString origin){
 	if(routing_table.contains(origin)){
 		return routing_table[origin];
 	}else{
-		return NULL;
+		// create a NULL entry
+		QHash<QString,QVariant> empty;
+		return empty;
 	}
 }

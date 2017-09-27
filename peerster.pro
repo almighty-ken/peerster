@@ -12,5 +12,7 @@ QT += network
 HEADERS += main.hh
 SOURCES += main.cc \
 		GNode.cc \
-		Peer.cc
+		Peer.cc \
+		Router.cc \
+		DmDialog.cc
 
