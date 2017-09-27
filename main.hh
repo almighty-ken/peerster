@@ -18,6 +18,7 @@
 #include <QHostInfo>
 #include <QQueue>
 #include <QPair>
+#include <QHash>
 #include <QList>
 
 class ChatDialog : public QDialog
@@ -66,6 +67,18 @@ public slots:
 };
 
 
+class Router :
+{
+public:
+	Router();
+	void update_table(QMap<QString, QVariant>,QHostAddress,quint16);
+	QHash<QString,QVariant> retrieve_info(QString);
+
+private:
+	QHash<QString,QVariant> routing_table;
+}
+
+
 class GNode : public QUdpSocket
 {
 	Q_OBJECT
@@ -87,12 +100,14 @@ public slots:
 	void entropy_message();
 	void add_peer_from_dialog(QString source);
 
+	// lab2
+	void send_route_rumour();
+
 signals:
 	void send_message2Dialog(QString message);
 
 private:
 	int myPortMin, myPortMax, myPort;
-	// int neighbor1, neighbor2;
 	QTimer entropy_timer;
 	quint32 message_sequence;
 	QString originID;
@@ -100,16 +115,23 @@ private:
 	QMap<QString,QVariant> statusDB;
 	QMap<QPair<QString,quint16>,QQueue<QPair<QTime,QByteArray>>> confirm_waitlist;
 	QList<Peer*> peer_list;
+	
+	// lab2
+	Router router;
+	QTimer route_timer;
 
 	bool inDB(QMap<QString, QVariant>);
 	void random_send(QByteArray);
-	bool valid_rumor(QMap<QString,QVariant>);
+	bool check_message_type(QMap<QString,QVariant>);
 	void send_messageUDP(QByteArray, QHostAddress, quint16);
 	void add2DB(QMap<QString, QVariant>);
 	QMap<QString,QVariant> build_status();
 	void process_status(QMap<QString,QVariant>, QHostAddress, quint16);
 	void update_waitlist(QHostAddress, quint16);
 	void learn_peer(QHostAddress, quint16);
+
+
+
 
 };
 

@@ -27,6 +27,7 @@ GNode::GNode(){
 
 	// set up entropy timer
 	entropy_timer.start(10000);
+	route_timer.start(60000);
 
 	qDebug() << "[GNode::GNode]originID is: " << originID;
 
@@ -34,6 +35,10 @@ GNode::GNode(){
 		this,SLOT(received_UDP_message()));
 	connect(&entropy_timer,SIGNAL(timeout()),this,SLOT(entropy_message()));
 	connect(&entropy_timer,SIGNAL(timeout()),this,SLOT(check_waitlist()));
+
+	// lab2
+	connect(&route_timer,SIGNAL(timeout()),this,SLOT(send_route_rumour()));
+	send_route_rumour();
 }
 
 void GNode::learn_peer(QHostAddress addr, quint16 port){
@@ -67,7 +72,8 @@ void GNode::received_UDP_message(){
 		(*stream) >> map_message;
 	}
 	// check if the message is a rumor or a status
-	if(map_message.contains("Want")){
+	int message_type = check_message_type(map_message);
+	if(message_type == 0){
 		// this is a status message, which is a confirmation
 		qDebug() << "[GNode::received_UDP_message]Received status message:" << map_message;
 
@@ -76,36 +82,42 @@ void GNode::received_UDP_message(){
 
 		QMap<QString,QVariant> status = map_message["Want"].toMap();
 		process_status(status,address,port);
-	}else{
+	}else if(message_type == 1){
 		// this is a rumor message
 		// now we should see if we already have the message
 		// if have seen, ignore, else start rumoring
 		qDebug() << "[GNode::received_UDP_message]Received rumor message:" << map_message;
-		if(!valid_rumor(map_message)){
-			return;
-		}
 		if(!inDB(map_message)){
-			
 			random_send(datagram);
 			QVariant message_text = map_message["ChatText"];
 			emit send_message2Dialog(message_text.toString());
 		}
 		// no matter in DB or not, we want to make sure statusDB is updated
 		add2DB(map_message);
+		// we should also use this message to update our router
+		router.update_table(map_message,address,port);
 		// now we should reply a confirmation that we have received the message
 		qDebug() << "[GNode::received_UDP_message]Sending Confirmation...";
-		// sleep(1);
 		SerializeSend_message(build_status(),address,port);
+	}else if(message_type==2){
+		// this is a route rumor message
+		qDebug() << "[GNode::received_UDP_message]Received route message:" << map_message;
+		router.update_table(map_message,address,port);
+		random_send(datagram);
+	}else{
+		qDebug() << "[GNode::received_UDP_message]Received invalid UDP message";
 	}
 }
 
-bool GNode::valid_rumor(QMap<QString,QVariant> message){
-	if(message.contains("ChatText") && message.contains("Origin") && message.contains("SeqNo")){
-		return true;
-	}else{
-		qDebug() << "Received invalid rumor";
-		return false;
+int GNode::check_message_type(QMap<QString,QVariant> message){
+	if(map_message.contains("Want"))
+		return 0;
+	else if(message.contains("ChatText") && message.contains("Origin") && message.contains("SeqNo"))
+		return 1;
+	else if(message.contains("Origin") && message.contains("SeqNo")){
+		return 2;
 	}
+	return -1;
 }
 
 
@@ -113,7 +125,7 @@ QMap<QString,QVariant> GNode::build_status(){
 	QMap<QString,QVariant> status;
 	
 	status[QString("Want")] = QVariant(statusDB);
-	qDebug() << "[GNode::build_status]Current statusDB is :"<<status;
+	// qDebug() << "[GNode::build_status]Current statusDB is :"<<status;
 	return status;
 }
 
@@ -124,7 +136,7 @@ void GNode::entropy_message(){
 		(*stream) << build_status();
 	}
 	random_send(data);
-	qDebug() << "[GNode::entropy_message]Generated anti entropy message";
+	// qDebug() << "[GNode::entropy_message]Generated anti entropy message";
 }
 
 void GNode::process_status(QMap<QString,QVariant> status, QHostAddress addr, quint16 port){
@@ -153,7 +165,7 @@ void GNode::process_status(QMap<QString,QVariant> status, QHostAddress addr, qui
 		    	// construct key here
 		    	QString message_key = userID;
 		    	message_key.append(QString::number(status.value(userID).toUInt()));
-		    	qDebug() << "[GNode::process_status]message_key is: " << message_key;
+		    	// qDebug() << "[GNode::process_status]message_key is: " << message_key;
 		    	QMap<QString, QVariant> message = messageDB.value(message_key);
 		    	qDebug() << "[GNode::process_status]Sharing message with peer: " << message;
 		    	SerializeSend_message(message,addr,port);
@@ -181,7 +193,7 @@ bool GNode::inDB(QMap<QString, QVariant> message){
 	// the DB uses QMap<origin,seqno> as ID
 	QString key = message.value("Origin").toString();
 	key.append(message.value("SeqNo").toString());
-	qDebug() << "[GNode::inDB]Key used in DB search:" << key;
+	// qDebug() << "[GNode::inDB]Key used in DB search:" << key;
 	if(messageDB.contains(key))
 		return true;
 	else
@@ -214,6 +226,23 @@ void GNode::add2DB(QMap<QString, QVariant> message){
 		qDebug() << "[GNode::add2DB]New Message Source";
 	}
 	qDebug() << "[GNode::add2DB]Added to DB:" << key;
+}
+
+void GNode::send_route_rumour(){
+	// send out our own route rumour
+	// this will utilize the GNode::random_send function
+	// we will build the route_rumour message and serialize it
+	// then send it out through random_send
+	QMap<QString, QVariant> map_message;
+	map_message[QString("Origin")] = QVariant(originID);
+	map_message[QString("SeqNo")] = QVariant(message_sequence);
+	QByteArray data;
+	{
+		QDataStream * stream = new QDataStream(&data, QIODevice::WriteOnly);
+		(*stream) << map;
+	}
+	qDebug() << "[GNode::send_route_rumour]Route Rumor Generated"
+	random_send(data);
 }
 
 void GNode::random_send(QByteArray data){
@@ -258,7 +287,7 @@ void GNode::update_waitlist(QHostAddress addr, quint16 port){
 void GNode::check_waitlist(){
 	// iterate through head of every queue
 	// if time out, resend that QByteArray
-	qDebug() << "[GNode::check_waitlist]Checking waitlist...";
+	// qDebug() << "[GNode::check_waitlist]Checking waitlist...";
 	QMap<QPair<QString,quint16>, QQueue<QPair<QTime,QByteArray> > >::const_iterator i \
 		= confirm_waitlist.constBegin();
 
