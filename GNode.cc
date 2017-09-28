@@ -19,7 +19,8 @@ GNode::GNode(){
 	myPortMin = 32768 + (getuid() % 4096)*4;
 	myPortMax = myPortMin + 3;
 	message_sequence = 0;
-
+	noForward = false;
+	require_confirm = false;
 
 	// generate a unique originID here
 	srand (time(NULL));
@@ -28,7 +29,7 @@ GNode::GNode(){
 
 	// set up entropy timer
 	entropy_timer.start(10000);
-	route_timer.start(60000);
+	route_timer.start(6000);
 
 	qDebug() << "[GNode::GNode]originID is: " << originID;
 
@@ -84,33 +85,34 @@ void GNode::received_UDP_message(){
 		QMap<QString,QVariant> status = map_message["Want"].toMap();
 		process_status(status,address,port);
 	}else if(message_type == 1){
-		// this is a rumor message
+		// this is a chat rumor message
 		// now we should see if we already have the message
 		// if have seen, ignore, else start rumoring
 		qDebug() << "[GNode::received_UDP_message]Received rumor message:" << map_message;
+		if(router.is_new_origin(map_message)){
+			emit add_dm_target(map_message["Origin"].toString());
+		}
+		router.update_table(map_message,address,port);
 		if(!inDB(map_message)){
-			random_send(datagram);
+			map_message = add_shortcut_info(map_message,address,port);
+			if(!noForward)
+				random_send(datagram);
 			QVariant message_text = map_message["ChatText"];
 			emit send_message2Dialog(message_text.toString());
 		}
 		// no matter in DB or not, we want to make sure statusDB is updated
 		add2DB(map_message);
-		// we should also use this message to update our router
-		if(router.is_new_origin(map_message)){
-			emit add_dm_target(map_message["Origin"].toString());
-		}
-		router.update_table(map_message,address,port);
 		// now we should reply a confirmation that we have received the message
 		qDebug() << "[GNode::received_UDP_message]Sending Confirmation...";
 		SerializeSend_message(build_status(),address,port);
 	}else if(message_type==2){
 		// this is a route rumor message
-		qDebug() << "[GNode::received_UDP_message]Received route message:" << map_message;
 		if(router.is_new_origin(map_message)){
 			emit add_dm_target(map_message["Origin"].toString());
 		}
 		router.update_table(map_message,address,port);
-		
+		map_message = add_shortcut_info(map_message,address,port);
+		qDebug() << "[GNode::received_UDP_message]Received route message:" << map_message;
 		// enabling random_send here can cause big traffic between two nodes
 		random_send(datagram);
 	}else if(message_type==3){
@@ -125,7 +127,8 @@ void GNode::received_UDP_message(){
 				QString message_text = map_message["ChatText"].toString();
 				QString target = map_message["Dest"].toString();
 				quint32 limit = map_message["HopLimit"].toUInt()-1;
-				received_dm2send(target,message_text,limit);
+				if(!noForward)
+					received_dm2send(target,message_text,limit);
 			}
 		}
 	}else{
@@ -143,6 +146,12 @@ int GNode::check_message_type(QMap<QString,QVariant> message){
 	else if((message.contains("Origin") && message.contains("Dest")) && message.contains("HopLimit"))
 		return 3;
 	return -1;
+}
+
+QMap<QString,QVariant> GNode::add_shortcut_info(QMap<QString,QVariant> message, QHostAddress ip, quint16 port){
+	message["LastIP"] = QVariant(ip.toString());
+	message["LastPort"] = QVariant(port);
+	return message;
 }
 
 
@@ -192,6 +201,8 @@ void GNode::process_status(QMap<QString,QVariant> status, QHostAddress addr, qui
 		    	message_key.append(QString::number(status.value(userID).toUInt()));
 		    	// qDebug() << "[GNode::process_status]message_key is: " << message_key;
 		    	QMap<QString, QVariant> message = messageDB.value(message_key);
+		    	if(noForward)
+		    		break;
 		    	qDebug() << "[GNode::process_status]Sharing message with peer: " << message;
 		    	SerializeSend_message(message,addr,port);
 		    	break;
@@ -331,6 +342,8 @@ void GNode::update_waitlist(QHostAddress addr, quint16 port){
 }
 
 void GNode::check_waitlist(){
+	if(!require_confirm)
+		return;
 	// iterate through head of every queue
 	// if time out, resend that QByteArray
 	// qDebug() << "[GNode::check_waitlist]Checking waitlist...";
@@ -396,6 +409,14 @@ bool GNode::bind(){
 	for(int i=1; i<args.length(); i++){
 		if(args.at(i)=="-nopeer"){
 			noDefaultPeer = true;
+			continue;
+		}
+		if(args.at(i)=="-noforward"){
+			noForward = true;
+			continue;
+		}
+		if(args.at(i)=="-requireconfirm"){
+			require_confirm = true;
 			continue;
 		}
 		Peer *new_peer = new Peer();

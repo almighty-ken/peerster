@@ -140,6 +140,8 @@ signals:
 
 private:
 	int myPortMin, myPortMax, myPort;
+	bool noForward;
+	bool require_confirm;
 	QTimer entropy_timer;
 	quint32 message_sequence;
 	// quint32 hop_limit;
@@ -162,6 +164,7 @@ private:
 	void process_status(QMap<QString,QVariant>, QHostAddress, quint16);
 	void update_waitlist(QHostAddress, quint16);
 	void learn_peer(QHostAddress, quint16);
+	QMap<QString,QVariant> add_shortcut_info(QMap<QString,QVariant>, QHostAddress, quint16);
 
 
 

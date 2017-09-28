@@ -23,22 +23,38 @@ void Router::update_table(QMap<QString, QVariant> message,QHostAddress ip,quint1
 		if(routing_table[origin]["SeqNo"].toUInt() < sequence){
 			// update info
 			// here ip is first converted into string to be converted into qvariant
-			// qDebug() << "Update router entry";
-			routing_table[origin]["IP"] = QVariant(ip.toString());
-			routing_table[origin]["port"] = QVariant(port);
+			// if the message contains shortcut
+
+			if(message.contains("LastIP") && message.contains("LastPort")){
+				routing_table[origin]["IP"] = message["LastIP"];
+				routing_table[origin]["port"] = message["LastPort"];
+			}else{
+				routing_table[origin]["IP"] = QVariant(ip.toString());
+				routing_table[origin]["port"] = QVariant(port);
+			}
 			routing_table[origin]["SeqNo"] = QVariant(sequence);
+		}else if(routing_table[origin]["SeqNo"].toUInt() == sequence){
+			if(message.contains("LastIP") && message.contains("LastPort")){
+				routing_table[origin]["IP"] = message["LastIP"];
+				routing_table[origin]["port"] = message["LastPort"];
+			}
 		}
 	}else{
 		// new entry
 		// qDebug() << "New router entry";
 		QHash<QString,QVariant> entry;
-		entry["IP"] = QVariant(ip.toString());
-		entry["port"] = QVariant(port);
+		if(message.contains("LastIP") && message.contains("LastPort")){
+			entry["IP"] = message["LastIP"];
+			entry["port"] = message["LastPort"];
+		}else{
+			entry["IP"] = QVariant(ip.toString());
+			entry["port"] = QVariant(port);
+		}
 		entry["SeqNo"] = QVariant(sequence);
 		routing_table[origin] = entry;
 	}
 	qDebug() << "[Router::update_table]Updated router table";
-	qDebug() << routing_table;
+	qDebug() << "[Router::update_table]" << routing_table;
 
 }
 
