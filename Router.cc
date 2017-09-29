@@ -36,7 +36,10 @@ void Router::update_table(QMap<QString, QVariant> message,QHostAddress ip,quint1
 			}
 			routing_table[origin]["SeqNo"] = QVariant(sequence);
 		}else if(routing_table[origin]["SeqNo"].toUInt() == sequence){
-			if(message.contains("LastIP") && message.contains("LastPort")){
+			// if original entry is direct, then ignore
+			// else overwrite
+			if((routing_table[origin]["direct"].toInt()==0 && message.contains("LastIP"))
+				 && message.contains("LastPort")){
 				qDebug() << "Shortcutting entry with same SeqNo";
 				routing_table[origin]["IP"] = message["LastIP"];
 				routing_table[origin]["port"] = message["LastPort"];
@@ -49,9 +52,11 @@ void Router::update_table(QMap<QString, QVariant> message,QHostAddress ip,quint1
 		if(message.contains("LastIP") && message.contains("LastPort")){
 			entry["IP"] = message["LastIP"];
 			entry["port"] = message["LastPort"];
+			entry["direct"] = QVariant(0);
 		}else{
 			entry["IP"] = QVariant(ip.toString());
 			entry["port"] = QVariant(port);
+			entry["direct"] = QVariant(1);
 		}
 		entry["SeqNo"] = QVariant(sequence);
 		routing_table[origin] = entry;
