@@ -53,8 +53,7 @@ void Router::update_table(QMap<QString, QVariant> message,QHostAddress ip,quint1
 		entry["SeqNo"] = QVariant(sequence);
 		routing_table[origin] = entry;
 	}
-	qDebug() << "[Router::update_table]Updated router table";
-	qDebug() << "[Router::update_table]" << routing_table;
+	qDebug() << "[Router::update_table]Updated router table" << routing_table;
 
 }
 
