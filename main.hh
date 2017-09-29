@@ -157,6 +157,7 @@ private:
 
 	bool inDB(QMap<QString, QVariant>);
 	void random_send(QByteArray);
+	void all_send(QByteArray);
 	int check_message_type(QMap<QString,QVariant>);
 	void send_messageUDP(QByteArray, QHostAddress, quint16);
 	void add2DB(QMap<QString, QVariant>);

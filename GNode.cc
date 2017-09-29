@@ -295,7 +295,17 @@ void GNode::send_route_rumour(){
 		(*stream) << map_message;
 	}
 	qDebug() << "[GNode::send_route_rumour]Route Rumor Generated";
-	random_send(data);
+	all_send(data);
+}
+
+void GNode::all_send(QByteArray data){
+	int peer_cnt = peer_list.length();
+	if(peer_cnt==0)
+		return;
+	for(int i=0; i<peer_cnt; i++){
+		send_messageUDP(data,peer_list[i]->host_addr,peer_list[i]->host_port);
+	}
+	qDebug() << "[GNode::all_send]Message sent to all peers"
 }
 
 void GNode::random_send(QByteArray data){
