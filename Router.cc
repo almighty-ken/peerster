@@ -26,22 +26,25 @@ void Router::update_table(QMap<QString, QVariant> message,QHostAddress ip,quint1
 			// if the message contains shortcut
 
 			if(message.contains("LastIP") && message.contains("LastPort")){
+				qDebug() << "Shortcutting entry with bigger SeqNo";
 				routing_table[origin]["IP"] = message["LastIP"];
 				routing_table[origin]["port"] = message["LastPort"];
 			}else{
+				qDebug() << "Updating entry NORMAL";
 				routing_table[origin]["IP"] = QVariant(ip.toString());
 				routing_table[origin]["port"] = QVariant(port);
 			}
 			routing_table[origin]["SeqNo"] = QVariant(sequence);
 		}else if(routing_table[origin]["SeqNo"].toUInt() == sequence){
 			if(message.contains("LastIP") && message.contains("LastPort")){
+				qDebug() << "Shortcutting entry with same SeqNo";
 				routing_table[origin]["IP"] = message["LastIP"];
 				routing_table[origin]["port"] = message["LastPort"];
 			}
 		}
 	}else{
 		// new entry
-		// qDebug() << "New router entry";
+		qDebug() << "New router entry";
 		QHash<QString,QVariant> entry;
 		if(message.contains("LastIP") && message.contains("LastPort")){
 			entry["IP"] = message["LastIP"];
