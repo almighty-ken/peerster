@@ -305,7 +305,7 @@ void GNode::all_send(QByteArray data){
 	for(int i=0; i<peer_cnt; i++){
 		send_messageUDP(data,peer_list[i]->host_addr,peer_list[i]->host_port);
 	}
-	qDebug() << "[GNode::all_send]Message sent to all peers"
+	qDebug() << "[GNode::all_send]Message sent to all peers";
 }
 
 void GNode::random_send(QByteArray data){
