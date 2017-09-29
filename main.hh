@@ -105,7 +105,7 @@ public:
 	bool is_new_origin(QMap<QString, QVariant>);
 
 private:
-	QHash<QString,QHash<QString,QVariant>> routing_table;
+	QHash<QString,QHash<QString,QVariant> > routing_table;
 };
 
 
@@ -146,9 +146,9 @@ private:
 	quint32 message_sequence;
 	// quint32 hop_limit;
 	QString originID;
-	QMap<QString,QMap<QString, QVariant>> messageDB;
+	QMap<QString,QMap<QString, QVariant> > messageDB;
 	QMap<QString,QVariant> statusDB;
-	QMap<QPair<QString,quint16>,QQueue<QPair<QTime,QByteArray>>> confirm_waitlist;
+	QMap<QPair<QString,quint16>,QQueue<QPair<QTime,QByteArray> > > confirm_waitlist;
 	QList<Peer*> peer_list;
 	
 	// lab2
