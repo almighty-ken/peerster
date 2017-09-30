@@ -53,7 +53,7 @@ void GNode::learn_peer(QHostAddress addr, quint16 port){
 	Peer *new_peer = new Peer();
 	new_peer->insert(addr,port);
 	peer_list.append(new_peer);
-	qDebug() << "[GNode::learn_peer]New peer auto added";
+	qDebug() << "[GNode::learn_peer]New peer auto added, now we have "<< peer_list.length();
 }
 
 void GNode::received_UDP_message(){
@@ -94,7 +94,7 @@ void GNode::received_UDP_message(){
 		}
 		router.update_table(map_message,address,port);
 		if(!inDB(map_message)){
-			map_message = add_shortcut_info(map_message,address,port);
+			datagram = add_shortcut_info(map_message,address,port);
 			if(!noForward)
 				random_send(datagram);
 			QVariant message_text = map_message["ChatText"];
@@ -111,7 +111,7 @@ void GNode::received_UDP_message(){
 			emit add_dm_target(map_message["Origin"].toString());
 		}
 		router.update_table(map_message,address,port);
-		map_message = add_shortcut_info(map_message,address,port);
+		datagram = add_shortcut_info(map_message,address,port);
 		qDebug() << "[GNode::received_UDP_message]Received route message:" << map_message;
 		// enabling random_send here can cause big traffic between two nodes
 		random_send(datagram);
@@ -148,10 +148,15 @@ int GNode::check_message_type(QMap<QString,QVariant> message){
 	return -1;
 }
 
-QMap<QString,QVariant> GNode::add_shortcut_info(QMap<QString,QVariant> message, QHostAddress ip, quint16 port){
+QByteArray GNode::add_shortcut_info(QMap<QString,QVariant> message, QHostAddress ip, quint16 port){
 	message["LastIP"] = QVariant(ip.toString());
 	message["LastPort"] = QVariant(port);
-	return message;
+	QByteArray data;
+	{
+		QDataStream * stream = new QDataStream(&data, QIODevice::WriteOnly);
+		(*stream) << message;
+	}
+	return data;
 }
 
 

@@ -165,7 +165,7 @@ private:
 	void process_status(QMap<QString,QVariant>, QHostAddress, quint16);
 	void update_waitlist(QHostAddress, quint16);
 	void learn_peer(QHostAddress, quint16);
-	QMap<QString,QVariant> add_shortcut_info(QMap<QString,QVariant>, QHostAddress, quint16);
+	QByteArray add_shortcut_info(QMap<QString,QVariant>, QHostAddress, quint16);
 
 
 
