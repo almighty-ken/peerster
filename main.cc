@@ -16,6 +16,7 @@ ChatDialog::ChatDialog()
 	// Create the direct message chat dialog
 
 	setWindowTitle("Peerster");
+	resize(300,600);
 
 	// Read-only text box where we display messages from everyone.
 	// This widget expands both horizontally and vertically.
@@ -87,6 +88,10 @@ void ChatDialog::add_dm_target(QString origin){
 	qDebug() << "[ChatDialog::add_dm_target]Direct message target added";
 }
 
+void ChatDialog::set_title(QString ID){
+	setWindowTitle(ID);
+}
+
 void ChatDialog::addPeerPressed()
 {
 	// Initially, just echo the string locally.
@@ -136,6 +141,10 @@ int main(int argc, char **argv)
 
 	// Create a UDP network socket
 	GNode gnode;
+
+	QObject::connect(&gnode, SIGNAL(send_originID(QString)),
+		&dialog,SLOT(set_title(QString)));
+
 	if (!gnode.bind())
 		exit(1);
 

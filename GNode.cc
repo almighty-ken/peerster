@@ -25,7 +25,8 @@ GNode::GNode(){
 	// generate a unique originID here
 	srand (time(NULL));
 	originID = QHostInfo::localHostName();
-	originID.append(QString::number(rand()));
+	originID.append(QString::number(rand()%1000));
+
 
 	// set up entropy timer
 	entropy_timer.start(10000);
@@ -405,6 +406,8 @@ void GNode::received_message2send(QString message){
 	map_message[QString("Origin")] = QVariant(originID);
 	map_message[QString("SeqNo")] = QVariant(message_sequence);
 
+	if(peer_list.length()==0)
+		return;
 	int idx = rand() % peer_list.length();
 	SerializeSend_message(map_message,peer_list[idx]->host_addr,peer_list[idx]->host_port);
 	
@@ -438,6 +441,10 @@ bool GNode::bind(){
 		new_peer->insert(args.at(i));
 		peer_list.append(new_peer);
 	}
+
+	// emit a signal here to show origin ID
+	emit send_originID(originID);
+
 	// Try to bind to each of the range myPortMin..myPortMax in turn.
 	for (int p = myPortMin; p <= myPortMax; p++) {
 		if (QUdpSocket::bind(p)) {

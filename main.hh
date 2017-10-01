@@ -56,6 +56,7 @@ public slots:
 	void add_dm_target(QString origin);
 	// void test(QListWidgetItem*);
 	void pass_dm_signal(QString,QString);
+	void set_title(QString);
 
 signals:
 	void send_message(QString message);
@@ -137,6 +138,7 @@ public slots:
 signals:
 	void send_message2Dialog(QString message);
 	void add_dm_target(QString target);
+	void send_originID(QString ID);
 
 private:
 	int myPortMin, myPortMax, myPort;
