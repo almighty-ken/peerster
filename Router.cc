@@ -24,14 +24,14 @@ void Router::update_table(QMap<QString, QVariant> message,QHostAddress ip,quint1
 			// update info
 			// here ip is first converted into string to be converted into qvariant
 			// if the message contains shortcut
-			qDebug() << "[Router::update_table]Overwriting with newer SeqNo";
+			// qDebug() << "[Router::update_table]Overwriting with newer SeqNo";
 
 			if(message.contains("LastIP") && message.contains("LastPort")){
-				qDebug() << "Shortcutting entry with bigger SeqNo";
+				// qDebug() << "Shortcutting entry with bigger SeqNo";
 				routing_table[origin]["IP"] = message["LastIP"];
 				routing_table[origin]["port"] = message["LastPort"];
 			}else{
-				qDebug() << "Updating entry DIRECT";
+				// qDebug() << "Updating entry DIRECT";
 				routing_table[origin]["IP"] = QVariant(ip.toString());
 				routing_table[origin]["port"] = QVariant(port);
 				routing_table[origin]["direct"] = QVariant(1);
@@ -40,9 +40,9 @@ void Router::update_table(QMap<QString, QVariant> message,QHostAddress ip,quint1
 		}else if(routing_table[origin]["SeqNo"].toUInt() == sequence){
 			// if original entry is direct, then ignore
 			// else overwrite
-			qDebug() << "[Router::update_table]checking with same SeqNo";
+			// qDebug() << "[Router::update_table]checking with same SeqNo";
 			if(message.contains("LastIP") && message.contains("LastPort")){
-				qDebug() << "Shortcutting entry with same SeqNo";
+				// qDebug() << "Shortcutting entry with same SeqNo";
 				if(routing_table[origin]["direct"].toInt()==0){
 					routing_table[origin]["IP"] = message["LastIP"];
 					routing_table[origin]["port"] = message["LastPort"];
@@ -55,7 +55,7 @@ void Router::update_table(QMap<QString, QVariant> message,QHostAddress ip,quint1
 		}
 	}else{
 		// new entry
-		qDebug() << "[Router::update_table]New router entry";
+		// qDebug() << "[Router::update_table]New router entry";
 		QHash<QString,QVariant> entry;
 		if(message.contains("LastIP") && message.contains("LastPort")){
 			entry["IP"] = message["LastIP"];

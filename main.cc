@@ -17,7 +17,7 @@ ChatDialog::ChatDialog()
 	// Create the direct message chat dialog
 
 	setWindowTitle("Peerster");
-	resize(600,600);
+	resize(400,600);
 	move(200,200);
 
 	// Read-only text box where we display messages from everyone.
@@ -107,6 +107,13 @@ ChatDialog::ChatDialog()
 		&dm_dialog, SLOT(show_with_target(QListWidgetItem*)));
 	connect(&dm_dialog, SIGNAL(send_dm(QString,QString)),
 		this, SLOT(pass_dm_signal(QString,QString)));
+
+	connect(file_target, SIGNAL(itemDoubleClicked(QListWidgetItem*)),
+		this, SLOT(download_prepare(QListWidgetItem*)));
+}
+
+void ChatDialog::download_prepare(QListWidgetItem* item){
+	emit send_download(item->text());
 }
 
 void ChatDialog::searchPressed()
@@ -114,6 +121,7 @@ void ChatDialog::searchPressed()
 	QString message = textline->toPlainText();
 	emit send_query(message);
 	textline->clear();
+	file_target->clear();
 }
 
 void ChatDialog::select_file_dialog(){
@@ -127,6 +135,11 @@ void ChatDialog::select_file_dialog(){
 
 void ChatDialog::add_dm_target(QString origin){
 	dm_target -> addItem(origin);
+	qDebug() << "[ChatDialog::add_dm_target]Direct message target added";
+}
+
+void ChatDialog::add_file_target(QString file_name){
+	file_target -> addItem(file_name);
 	qDebug() << "[ChatDialog::add_dm_target]Direct message target added";
 }
 
@@ -219,6 +232,9 @@ int main(int argc, char **argv)
 	QObject::connect(&dialog, SIGNAL(files_selected(QStringList)),
 		&fmanager,SLOT(files_selected_add(QStringList)));
 
+	QObject::connect(&dialog, SIGNAL(send_download(QString)),
+		&fmanager,SLOT(file_download(QString)));
+
 	QObject::connect(&dialog, SIGNAL(send_query(QString)),&gnode, 
 		SLOT(start_search(QString)));
 
@@ -229,6 +245,12 @@ int main(int argc, char **argv)
 			QString, QVariantList, QVariantList)),
 		&gnode,SLOT(send_search_reply(QString, 
 			QString, QVariantList, QVariantList)));
+
+	QObject::connect(&gnode, SIGNAL(send_file2Dialog(QString)),
+		&dialog,SLOT(add_file_target(QString)));
+
+	QObject::connect(&gnode, SIGNAL(send_file2Manager(QString, QString, QByteArray)),
+		&fmanager,SLOT(file_option_add(QString, QString, QByteArray)));
 	// Enter the Qt main loop; everything else is event driven
 	return app.exec();
 }

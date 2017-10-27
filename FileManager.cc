@@ -7,6 +7,7 @@
 #include <QVariant>
 #include <QFileInfo>
 #include <QFile>
+#include <QRegExp>
 
 
 #include "main.hh"
@@ -49,6 +50,55 @@ void FileManager::dump_file_list(){
 			<< file_info_list.at(i).file_name << " with " <<
 			file_info_list.at(i).block_count << " blocks";
 	}
+}
+
+void FileManager::received_query(QMap<QString, QVariant> query){
+
+	QList<file_info> file_info_list;
+	QVariantList match_names;
+	QVariantList match_ids;
+
+	// parse search key
+	QStringList terms = query[QString("Search")].toString().split(QRegExp("\\s+"), 
+		QString::SkipEmptyParts);
+
+	// look against info file_name
+	for(int i=0; i<file_info_list.length(); i++){
+		QString name = file_info_list.at(i).file_name;
+		for(int j=0; j<terms.length(); j++){
+			if(name.toStdString().find(terms[j].toStdString()) != std::string::npos){
+				// is a match
+				match_names.append(QVariant(name));
+				match_ids.append(QVariant(file_info_list.at(i).blocklist_hash));
+				break;
+			}
+		}
+	}
+
+	if(match_names.length()>0){
+		emit return_query(query[QString("Origin")].toString(), 
+			query[QString("Search")].toString(), match_names, match_ids);
+	}
+}
+
+void FileManager::file_option_add(QString file_name, QString source, QByteArray file_ID){
+	// add this option to local option list
+	file_info new_entry;
+	new_entry.file_name = file_name;
+	new_entry.source = source;
+	new_entry.blocklist_hash = file_ID;
+	file_option_list.append(new_entry);
+}
+
+void FileManager::file_download(QString file_name){
+	for(int i=0; i<file_option_list.length(); i++){
+		if(file_option_list.at(i).file_name==file_name){
+			// TODO:emit some signal to initiate download
+			qDebug() << "[FileManager::file_download]Init download";
+			break;
+		}
+	}
+	qDebug() << "[FileManager::file_download]Bad download file name";
 }
 
 void FileManager::add_file_entry(QString file_name){

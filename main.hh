@@ -30,6 +30,7 @@
 
 typedef struct file_info{
 	QString file_name;
+	QString source;
 	quint32 file_size;
 	quint16 block_count;
 	QByteArray blocklist;
@@ -68,18 +69,22 @@ class ChatDialog : public QDialog
 		void received_from_UDP(QString message);
 		void addPeerPressed();
 		void add_dm_target(QString origin);
-		// void test(QListWidgetItem*);
 		void pass_dm_signal(QString,QString);
 		void set_title(QString);
 		void select_file_dialog();
 		void searchPressed();
+
+		// lab3
+		void add_file_target(QString file_name);
+		void download_prepare(QListWidgetItem* item);
 
 	signals:
 		void send_message(QString message);
 		void add_peer(QString source);
 		void send_dm(QString target, QString message, quint32 hop);
 		void files_selected(QStringList files);
-		void send_query(QStringList query);
+		void send_query(QString query);
+		void send_download(QString file_name);
 
 
 	private:
@@ -146,6 +151,8 @@ class FileManager : public QObject
 		// lab3
 		void files_selected_add(QStringList files);
 		void received_query(QMap<QString, QVariant> query);
+		void file_option_add(QString file_name, QString source, QByteArray file_ID);
+		void file_download(QString file_name);
 
 	signals:
 		void return_query(QString dest, 
@@ -153,6 +160,7 @@ class FileManager : public QObject
 
 	private:
 		QList<file_info> file_info_list;
+		QList<file_info> file_option_list;
 		void add_file_entry(QString file_name);
 		QString hash_sha1(QByteArray data);
 		void dump_file_list();
@@ -162,72 +170,78 @@ class GNode : public QUdpSocket
 {
 	Q_OBJECT
 
-public:
-	GNode();
+	public:
+		GNode();
 
-	// Bind this socket to a Peerster-specific default port.
-	bool bind();
-	void SerializeSend_message(QMap<QString, QVariant>, QHostAddress, quint16);
-	// void SerializeSend_message(QMap<QString,QMap<QString, quint32>>,
-	 // QHostAddress, quint16);
-
-
-public slots:
-	void received_message2send(QString message);
-	void received_UDP_message();
-	void check_waitlist();
-	void entropy_message();
-	void add_peer_from_dialog(QString source);
-
-	// lab2
-	void send_route_rumour();
-	void received_dm2send(QString target,QString message,quint32);
-	
-	// lab3
-	void start_search(QString keywords);
-	void send_search_reply(QString dest, 
-		QString search_reply, QVariantList match_names, QVariantList match_ids);
-
-signals:
-	void send_message2Dialog(QString message);
-	void add_dm_target(QString target);
-	void send_originID(QString ID);
-	void file_query(QMap<QString, QVariant> query);
-
-private:
-	int myPortMin, myPortMax, myPort;
-	bool noForward;
-	bool require_confirm;
-	QTimer entropy_timer;
-	quint32 message_sequence;
-	// quint32 hop_limit;
-	QString originID;
-	QMap<QString,QMap<QString, QVariant> > messageDB;
-	QMap<QString,QVariant> statusDB;
-	QMap<QPair<QString,quint16>,QQueue<QPair<QTime,QByteArray> > > confirm_waitlist;
-	QList<Peer*> peer_list;
-	quint32 search_budget;
-	
-	// lab2
-	Router router;
-	QTimer route_timer;
-
-	bool inDB(QMap<QString, QVariant>);
-	void random_send(QByteArray);
-	void all_send(QByteArray);
-	int check_message_type(QMap<QString,QVariant>);
-	void send_messageUDP(QByteArray, QHostAddress, quint16);
-	void add2DB(QMap<QString, QVariant>);
-	QMap<QString,QVariant> build_status();
-	void process_status(QMap<QString,QVariant>, QHostAddress, quint16);
-	void update_waitlist(QHostAddress, quint16);
-	void learn_peer(QHostAddress, quint16);
-	QByteArray add_shortcut_info(QMap<QString,QVariant>, QHostAddress, quint16);
-	void broadcast_search(QMap<QString,QVariant>);
+		// Bind this socket to a Peerster-specific default port.
+		bool bind();
+		void SerializeSend_message(QMap<QString, QVariant>, QHostAddress, quint16);
+		// void SerializeSend_message(QMap<QString,QMap<QString, quint32>>,
+		 // QHostAddress, quint16);
 
 
+	public slots:
+		void received_message2send(QString message);
+		void received_UDP_message();
+		void check_waitlist();
+		void entropy_message();
+		void add_peer_from_dialog(QString source);
 
+		// lab2
+		void send_route_rumour();
+		void received_dm2send(QString target,QString message,quint32);
+		
+		// lab3
+		void start_search(QString keywords);
+		void send_search_reply(QString dest, 
+			QString search_reply, QVariantList match_names, QVariantList match_ids);
+		void exec_search();
 
+	signals:
+		void send_message2Dialog(QString message);
+		void add_dm_target(QString target);
+		void send_originID(QString ID);
+
+		void file_query(QMap<QString, QVariant> query);
+		void send_file2Dialog(QString file_name);
+		void send_file2Manager(QString file_name, QString source, QByteArray file_ID);
+
+	private:
+		int myPortMin, myPortMax, myPort;
+		bool noForward;
+		bool require_confirm;
+		QTimer entropy_timer;
+		quint32 message_sequence;
+		// quint32 hop_limit;
+		QString originID;
+		QMap<QString,QMap<QString, QVariant> > messageDB;
+		QMap<QString,QVariant> statusDB;
+		QMap<QPair<QString,quint16>,QQueue<QPair<QTime,QByteArray> > > confirm_waitlist;
+		QList<Peer*> peer_list;
+		
+		// lab2
+		Router router;
+		QTimer route_timer;
+
+		// lab3
+		QTimer search_timer;
+		quint16 search_cnt;
+		QMap<QString,QVariant> query_cache;
+		
+
+		bool inDB(QMap<QString, QVariant>);
+		void random_send(QByteArray);
+		void all_send(QByteArray);
+		int check_message_type(QMap<QString,QVariant>);
+		void send_messageUDP(QByteArray, QHostAddress, quint16);
+		void add2DB(QMap<QString, QVariant>);
+		QMap<QString,QVariant> build_status();
+		void process_status(QMap<QString,QVariant>, QHostAddress, quint16);
+		void update_waitlist(QHostAddress, quint16);
+		void learn_peer(QHostAddress, quint16);
+		QByteArray add_shortcut_info(QMap<QString,QVariant>, QHostAddress, quint16);
+		void broadcast_search(QMap<QString,QVariant>);
+		void search_reply_proc(QMap<QString,QVariant>);
 };
 
 #endif // PEERSTER_MAIN_HH
