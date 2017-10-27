@@ -22,56 +22,82 @@
 #include <QList>
 #include <QListWidget>
 #include <QListWidgetItem>
+#include <QStringList>
+#include <QFileDialog>
+#include <QtCrypto/QtCrypto>
+
+#define MAX_BLOCKS 410
+
+typedef struct file_info{
+	QString file_name;
+	quint32 file_size;
+	quint16 block_count;
+	QByteArray blocklist;
+	QByteArray blocklist_hash;
+	QByteArray file_block[MAX_BLOCKS];
+}file_info;
 
 class DmDialog : public QDialog
 {
 	Q_OBJECT
-public:
-	DmDialog();
+	public:
+		DmDialog();
 
-public slots:
-	void show_with_target(QListWidgetItem*);
-	void gotReturnPressed();
+	public slots:
+		void show_with_target(QListWidgetItem*);
+		void gotReturnPressed();
 
-signals:
-	void send_dm(QString target, QString message);
+	signals:
+		void send_dm(QString target, QString message);
 
-private:
-	QString target;
-	QTextEdit *textline;
-	QPushButton *textsend;
+	private:
+		QString target;
+		QTextEdit *textline;
+		QPushButton *textsend;
 };
 
 class ChatDialog : public QDialog
 {
 	Q_OBJECT
 
-public:
-	ChatDialog();
+	public:
+		ChatDialog();
 
-public slots:
-	void gotReturnPressed();
-	void received_from_UDP(QString message);
-	void addPeerPressed();
-	void add_dm_target(QString origin);
-	// void test(QListWidgetItem*);
-	void pass_dm_signal(QString,QString);
-	void set_title(QString);
+	public slots:
+		void gotReturnPressed();
+		void received_from_UDP(QString message);
+		void addPeerPressed();
+		void add_dm_target(QString origin);
+		// void test(QListWidgetItem*);
+		void pass_dm_signal(QString,QString);
+		void set_title(QString);
+		void select_file_dialog();
+		void searchPressed();
 
-signals:
-	void send_message(QString message);
-	void add_peer(QString source);
-	void send_dm(QString target, QString message, quint32 hop);
+	signals:
+		void send_message(QString message);
+		void add_peer(QString source);
+		void send_dm(QString target, QString message, quint32 hop);
+		void files_selected(QStringList files);
+		void send_query(QStringList query);
 
 
-private:
-	QTextEdit *textview;
-	QTextEdit *textline;
-	QLineEdit *peerline;
-	QPushButton *textsend;
-	QPushButton *peeradd;
-	QListWidget *dm_target;
-	DmDialog dm_dialog;
+	private:
+		QTextEdit *textview;
+		QTextEdit *textline;
+		QLineEdit *peerline;
+		QPushButton *textsend;
+		QPushButton *peeradd;
+		QListWidget *dm_target;
+		DmDialog dm_dialog;
+
+		// lab3
+		QPushButton *select_file;
+		QListWidget *file_target;
+		
+		// instead, overload message for search terms
+		// QLineEdit *search_input;
+		QPushButton *search;
 };
 
 
@@ -79,19 +105,19 @@ class Peer : public QObject
 {
 	Q_OBJECT
 
-public:
-	Peer();
-	QString host_name;
-	QHostAddress host_addr;
-	quint16 host_port;
-	bool active;
+	public:
+		Peer();
+		QString host_name;
+		QHostAddress host_addr;
+		quint16 host_port;
+		bool active;
 
-	void insert(QString);
-	void insert(QHostAddress,quint16);
+		void insert(QString);
+		void insert(QHostAddress,quint16);
 
-public slots:
-	void looked_up_ip(QHostInfo);
-	void looked_up_name(QHostInfo);
+	public slots:
+		void looked_up_ip(QHostInfo);
+		void looked_up_name(QHostInfo);
 
 };
 
@@ -99,16 +125,38 @@ public slots:
 class Router : public QObject
 {
 	Q_OBJECT
-public:
-	Router();
-	void update_table(QMap<QString, QVariant>,QHostAddress,quint16);
-	QHash<QString,QVariant> retrieve_info(QString);
-	bool is_new_origin(QMap<QString, QVariant>);
+	public:
+		Router();
+		void update_table(QMap<QString, QVariant>,QHostAddress,quint16);
+		QHash<QString,QVariant> retrieve_info(QString);
+		bool is_new_origin(QMap<QString, QVariant>);
 
-private:
-	QHash<QString,QHash<QString,QVariant> > routing_table;
+	private:
+		QHash<QString,QHash<QString,QVariant> > routing_table;
 };
 
+class FileManager : public QObject
+{
+	Q_OBJECT
+
+	public:
+		FileManager();
+
+	public slots:
+		// lab3
+		void files_selected_add(QStringList files);
+		void received_query(QMap<QString, QVariant> query);
+
+	signals:
+		void return_query(QString dest, 
+			QString search_reply, QVariantList match_names, QVariantList match_ids);
+
+	private:
+		QList<file_info> file_info_list;
+		void add_file_entry(QString file_name);
+		QString hash_sha1(QByteArray data);
+		void dump_file_list();
+};
 
 class GNode : public QUdpSocket
 {
@@ -134,11 +182,17 @@ public slots:
 	// lab2
 	void send_route_rumour();
 	void received_dm2send(QString target,QString message,quint32);
+	
+	// lab3
+	void start_search(QString keywords);
+	void send_search_reply(QString dest, 
+		QString search_reply, QVariantList match_names, QVariantList match_ids);
 
 signals:
 	void send_message2Dialog(QString message);
 	void add_dm_target(QString target);
 	void send_originID(QString ID);
+	void file_query(QMap<QString, QVariant> query);
 
 private:
 	int myPortMin, myPortMax, myPort;
@@ -152,6 +206,7 @@ private:
 	QMap<QString,QVariant> statusDB;
 	QMap<QPair<QString,quint16>,QQueue<QPair<QTime,QByteArray> > > confirm_waitlist;
 	QList<Peer*> peer_list;
+	quint32 search_budget;
 	
 	// lab2
 	Router router;
@@ -168,6 +223,7 @@ private:
 	void update_waitlist(QHostAddress, quint16);
 	void learn_peer(QHostAddress, quint16);
 	QByteArray add_shortcut_info(QMap<QString,QVariant>, QHostAddress, quint16);
+	void broadcast_search(QMap<QString,QVariant>);
 
 
 

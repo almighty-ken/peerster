@@ -87,6 +87,7 @@ QHash<QString,QVariant> Router::retrieve_info(QString origin){
 		return routing_table[origin];
 	}else{
 		// create a NULL entry
+		qDebug() << "[Router::retrieve_info]Retrieve info fail!";
 		QHash<QString,QVariant> empty;
 		return empty;
 	}

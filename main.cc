@@ -4,6 +4,7 @@
 #include <time.h>
 
 #include <QVBoxLayout>
+#include <QGridLayout>
 
 #include <QDebug>
 #include <QKeyEvent>
@@ -16,7 +17,8 @@ ChatDialog::ChatDialog()
 	// Create the direct message chat dialog
 
 	setWindowTitle("Peerster");
-	resize(300,600);
+	resize(600,600);
+	move(200,200);
 
 	// Read-only text box where we display messages from everyone.
 	// This widget expands both horizontally and vertically.
@@ -46,19 +48,34 @@ ChatDialog::ChatDialog()
 	// A QListWidget for selecting direct messaging options
 	dm_target = new QListWidget(this);
 
+	// lab3
+	// A button for selecting files to add to system
+	select_file = new QPushButton("Select Files to share",this);
+
+	file_target = new QListWidget(this);
+	// search_input = new QLineEdit(this);
+	search = new QPushButton("Search",this);
+
 	// Lay out the widgets to appear in the main window.
 	// For Qt widget and layout concepts see:
 	// http://doc.qt.nokia.com/4.7-snapshot/widgets-and-layouts.html
-	QVBoxLayout *layout = new QVBoxLayout();
-	layout->addWidget(peerline);
-	layout->addWidget(peeradd);
+	// QVBoxLayout *layout = new QVBoxLayout();
+	QGridLayout *layout = new QGridLayout();
+	layout->addWidget(peerline,1,0);
+	layout->addWidget(peeradd,1,1);
 	// lab2
-	layout->addWidget(dm_target);
+	layout->addWidget(dm_target,2,0,1,2);
 	
 
-	layout->addWidget(textview);
-	layout->addWidget(textline);
-	layout->addWidget(textsend);
+	layout->addWidget(textview,3,0);
+	layout->addWidget(textline,4,0,4,1);
+	layout->addWidget(textsend,4,1);
+
+	// lab3
+	layout->addWidget(select_file,5,1);
+	layout->addWidget(search,6,1);
+	layout->addWidget(file_target,3,1);
+
 
 	
 
@@ -75,12 +92,37 @@ ChatDialog::ChatDialog()
 	connect(peeradd, SIGNAL(clicked()),
 		this, SLOT(addPeerPressed()));
 
+	// lab3
+	// Register a callback on the sekect_file signal
+	// so that we can open file dialog
+	connect(select_file, SIGNAL(clicked()),
+		this, SLOT(select_file_dialog()));
+
+	connect(search, SIGNAL(clicked()),
+		this, SLOT(searchPressed()));
+
 	// lab2
 	// send signal when
 	connect(dm_target, SIGNAL(itemDoubleClicked(QListWidgetItem*)),
 		&dm_dialog, SLOT(show_with_target(QListWidgetItem*)));
 	connect(&dm_dialog, SIGNAL(send_dm(QString,QString)),
 		this, SLOT(pass_dm_signal(QString,QString)));
+}
+
+void ChatDialog::searchPressed()
+{
+	QString message = textline->toPlainText();
+	emit send_query(message);
+	textline->clear();
+}
+
+void ChatDialog::select_file_dialog(){
+	QStringList files = QFileDialog::getOpenFileNames(
+                        this,
+                        "Select one or more files to share",
+                        "",
+                        "");
+	emit files_selected(files);
 }
 
 void ChatDialog::add_dm_target(QString origin){
@@ -135,6 +177,9 @@ int main(int argc, char **argv)
 	// Initialize Qt toolkit
 	QApplication app(argc,argv);
 
+	// Init crypto lib
+	QCA::Initializer qcainit;
+
 	// Create an initial chat dialog window
 	ChatDialog dialog;
 	dialog.show();
@@ -147,6 +192,10 @@ int main(int argc, char **argv)
 
 	if (!gnode.bind())
 		exit(1);
+
+	// lab3
+	// Create a file manager for file sharing
+	FileManager fmanager;
 
 	// connect the send_message signal to the received_message2send slot
 	QObject::connect(&dialog, SIGNAL(send_message(QString)),&gnode, 
@@ -165,6 +214,21 @@ int main(int argc, char **argv)
 	QObject::connect(&gnode, SIGNAL(add_dm_target(QString)),
 		&dialog,SLOT(add_dm_target(QString)));
 
+	// lab3
+	// connect files selected to FileManager
+	QObject::connect(&dialog, SIGNAL(files_selected(QStringList)),
+		&fmanager,SLOT(files_selected_add(QStringList)));
+
+	QObject::connect(&dialog, SIGNAL(send_query(QString)),&gnode, 
+		SLOT(start_search(QString)));
+
+	QObject::connect(&gnode, SIGNAL(file_query(QMap<QString, QVariant>)),
+		&fmanager,SLOT(received_query(QMap<QString, QVariant>)));
+
+	QObject::connect(&fmanager, SIGNAL(return_query(QString, 
+			QString, QVariantList, QVariantList)),
+		&gnode,SLOT(send_search_reply(QString, 
+			QString, QVariantList, QVariantList)));
 	// Enter the Qt main loop; everything else is event driven
 	return app.exec();
 }

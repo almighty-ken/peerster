@@ -5,8 +5,14 @@
 
 #include <QDebug>
 #include <QVariant>
+#include <vector>
+#include <random>
+#include <algorithm>
+#include <iterator>
 
 #include "main.hh"
+
+#define MAX_HOPS 10
 
 GNode::GNode(){
 	// Pick a range of four UDP ports to try to allocate by default,
@@ -42,6 +48,9 @@ GNode::GNode(){
 	// lab2
 	connect(&route_timer,SIGNAL(timeout()),this,SLOT(send_route_rumour()));
 	send_route_rumour();
+
+	// lab3
+	search_budget = 10;
 }
 
 void GNode::learn_peer(QHostAddress addr, quint16 port){
@@ -121,6 +130,7 @@ void GNode::received_UDP_message(){
 		qDebug() << "[GNode::received_UDP_message]Received direct message:" << map_message;
 		if(map_message["Dest"].toString()==originID){
 			// this is our message
+			// lab3: differentiate between file sending messages and DM here
 			emit send_message2Dialog(map_message["ChatText"].toString());
 		}else{
 			if(map_message["HopLimit"].toUInt()>0){
@@ -132,8 +142,75 @@ void GNode::received_UDP_message(){
 					received_dm2send(target,message_text,limit);
 			}
 		}
+	}else if(message_type==4){
+		// this is search request, first locally process, then broadcast
+
+		// emit a signal with message to FileManager
+		// FileManager returns a signal with info to send search reply
+		emit file_query(map_message);
+		broadcast_search(map_message);
 	}else{
 		qDebug() << "[GNode::received_UDP_message]Received invalid UDP message";
+	}
+}
+
+void GNode::broadcast_search(QMap<QString,QVariant> message){
+	quint16 budget = message[QString("Budget")].toUInt() - 1;
+
+	if(budget <= 0)
+		return;
+
+	quint16 base = budget/peer_list.length();
+	quint16 leftover = budget - (base*peer_list.length());
+
+	std::vector<int> idx;
+	for(int i=0; i<peer_list.length(); i++){
+		idx.push_back(i);
+	}
+	std::random_device rd;
+	std:mt19937 g(rd());
+	std::shuffle(v.begin(),v.end(),g);
+
+	for(int i=0; i<peer_list.length(); i++){
+		int dest = idx.back();
+		idx.pop_back();
+		if(i < leftover){
+			// can have extra budget
+			message[QString("Budget")] = QVariant(base+1);
+			SerializeSend_message(message,peer_list[dest]->host_addr,peer_list[dest]->host_port);
+		}
+		message[QString("Budget")] = QVariant(base);
+		SerializeSend_message(message,peer_list[dest]->host_addr,peer_list[dest]->host_port);
+	}
+}
+
+void GNode::start_search(QString keywords){
+	// TODO: add search daemon controlling budget
+	// we first parse the keywords, then
+	QMap<QString, QVariant> map_message;
+	map_message[QString("Search")] = QVariant(keywords);
+	map_message[QString("Origin")] = QVariant(originID);
+	map_message[QString("Budget")] = QVariant(search_budget);
+
+	quint16 base = search_budget/peer_list.length();
+	quint16 leftover = search_budget - (base*peer_list.length());
+
+	std::vector<int> idx;
+	for(int i=0; i<peer_list.length(); i++){
+		idx.push_back(i);
+	}
+	std::random_device rd;
+	std:mt19937 g(rd());
+	std::shuffle(v.begin(),v.end(),g);
+
+	for(int i=0; i<peer_list.length(); i++){
+		int dest = idx.back();
+		idx.pop_back();
+		if(i < leftover){
+			// can have extra budget
+			SerializeSend_message(map_message,peer_list[dest]->host_addr,peer_list[dest]->host_port);
+		}
+		SerializeSend_message(map_message,peer_list[dest]->host_addr,peer_list[dest]->host_port);
 	}
 }
 
@@ -146,7 +223,28 @@ int GNode::check_message_type(QMap<QString,QVariant> message){
 		return 2;
 	else if((message.contains("Origin") && message.contains("Dest")) && message.contains("HopLimit"))
 		return 3;
+	else if((message.contains("Origin") && message.contains("Search")) && message.contains("Budget"))
+		return 4;
 	return -1;
+}
+
+void GNode::send_search_reply(QString dest, 
+	QString search_reply, QVariantList match_names, QVariantList match_ids){
+	// generate a search reply message using the DM protocol
+	QMap<QString, QVariant> map_message;
+	map_message[QString("Dest")] = QVariant(dest);
+	map_message[QString("Origin")] = QVariant(originID);
+	map_message[QString("HopLimit")] = QVariant(MAX_HOPS);
+	map_message[QString("SearchReply")] = QVariant(search_reply);
+	map_message[QString("MatchNames")] = QVariant(match_names);
+	map_message[QString("MatchIDs")] = QVariant(match_ids);
+
+	QHash<QString,QVariant> entry;
+	entry = router.retrieve_info(dest);
+	QHostAddress ip = QHostAddress(entry["IP"].toString());
+	quint16 port = entry["port"].toUInt();
+
+	SerializeSend_message(map_message,ip,port);
 }
 
 QByteArray GNode::add_shortcut_info(QMap<QString,QVariant> message, QHostAddress ip, quint16 port){
@@ -464,6 +562,11 @@ bool GNode::bind(){
 			return true;
 		}
 	}
+
+	// lab3 update: send message to self
+	Peer *new_peer = new Peer();
+	new_peer->insert(QHostAddress::LocalHost,myPort);
+	peer_list.append(new_peer);
 
 	qDebug() << "[GNode::bind]Oops, no ports in my default range " << myPortMin
 		<< "-" << myPortMax << " available";

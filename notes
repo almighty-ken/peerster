@@ -1,0 +1,22 @@
+
+Block request and block reply messages should follow the direct message routing mechanism
+-> modify the DM receiving mecahnism to accept block request, then call file_check
+
+search request should follow the peer based broadcasting
+-> new type of rumor message
+
+search reply should be a DM
+-> how to make sure we know who to send to? Guarantee origin in is the routing table
+
+where should the file dialogue be? It should be under the main dialogue, and after selecting file, emit signal to a new class that takes care of files
+-> this will call the slot that add new entry by file name
+
+the file class should support these methods:
+internal structure storing file data
+check whether we have the file
+build entry by file name
+	requires interaction with OS to get data
+retrieve meta file by ID
+retrieve block by ID and block num
+
+TODO: send all message to self

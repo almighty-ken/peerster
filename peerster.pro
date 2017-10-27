@@ -7,6 +7,7 @@ TARGET =
 DEPENDPATH += .
 INCLUDEPATH += .
 QT += network
+CONFIG += crypto
 
 # Input
 HEADERS += main.hh
@@ -14,5 +15,6 @@ SOURCES += main.cc \
 		GNode.cc \
 		Peer.cc \
 		Router.cc \
-		DmDialog.cc
+		DmDialog.cc \
+		FileManager.cc
 
