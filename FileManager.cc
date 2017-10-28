@@ -29,7 +29,7 @@ void FileManager::files_selected_add(QStringList files){
 	dump_file_list();
 }
 
-QString FileManager::hash_sha1(QByteArray data){
+QByteArray FileManager::hash_sha1(QByteArray data){
 	if(!QCA::isSupported("sha1"))
 	        qDebug() << "[FileManager::hash_sha1]SHA1 not supported!";
     else
@@ -98,20 +98,100 @@ void FileManager::file_option_add(QString file_name, QString source, QByteArray 
 	file_info new_entry;
 	new_entry.file_name = file_name;
 	new_entry.source = source;
+	new_entry.downloaded_block_count = 0;
 	new_entry.blocklist_hash = file_ID;
 	file_option_list.append(new_entry);
 	dump_option_list();
 }
 
+void FileManager::block_received(QString source, QByteArray data, QByteArray hash){
+
+	// if yes, store it and decompose it, then call download manager
+	// else, fill it into the block spot
+	// finally check whether the file is complete
+	// if so, call method to write file
+
+	QByteArray check_hash = hash_sha1(data);
+	if(check_hash != hash){
+		qDebug() << "[FileManager::block_received]Hash does not match!";
+		return;
+	}
+
+	for(int i=0; i<file_option_list.length(); i++){
+		if(file_option_list.at(i).blocklist_hash == hash){
+			// check whether the data is a blocklist_hash
+			file_option_list[i].blocklist = data;
+			// decompose the blocklist call download manager
+			download_manager(i);
+			return;
+		}else{
+			// go through each file_block_hash
+			for(int j=0; j < file_option_list.at(i).block_count; j++){
+				if(file_option_list.at(i).file_block_hash[j]==hash){
+					file_option_list.at(i).file_block[j] = data;
+					file_option_list.at(i).downloaded_block_count++;
+					// check whether file is complete
+					// if so, export file
+					if(file_option_list.at(i).downloaded_block_count == file_option_list.at(i).block_count){
+						qDebug() << "[FileManager::block_received]File download complete";
+						TODO
+					}
+					return;
+				}
+			}
+		}
+	}
+}
+
+void FileManager::block_requested(QString dest, QByteArray hash){
+	// go through all the blocks and send a block reply
+	QByteArray data;
+	for(int i=0; i<file_info_list.length(); i++){
+		file_info entry = file_info_list.at(i);
+		if(entry.blocklist_hash == hash){
+			data = entry.blocklist;
+			break;
+		}
+		for(int j=0; j<entr.block_count; j++){
+			if(entry.file_block_hash[j] == hash){
+				data = entry.file_block[j];
+				break;
+			}
+		}
+	}
+	if(data.isEmpty()){
+		qDebug() << "[FileManager::block_requested]Couldn't find requested block";
+		return;
+	}
+
+	emit send_block_reply(dest,hash,data);
+	return;
+}
+
 void FileManager::file_download(QString file_name){
 	for(int i=0; i<file_option_list.length(); i++){
 		if(file_option_list.at(i).file_name==file_name){
-			// TODO:emit some signal to initiate download
-			qDebug() << "[FileManager::file_download]Init download";
-			break;
+			// download_manager(file_option_list.at(i));
+			// start download for block file
+			// emit signal for block request
+			// the block reply signal will trigger a slot to fill that block in
+			// the slot checks whether hash is the blocklist_hash
+			// if yes, trigger download manger
+			emit send_block_req(file_option_list.at(i).source,file_option_list.at(i).blocklist_hash);
+			return;
 		}
 	}
 	qDebug() << "[FileManager::file_download]Bad download file name";
+}
+
+void FileManager::download_manager(int i){
+	qDebug() << "[FileManager::download_manager]Init download";
+	// i is the index in the option list where blocklist is just acquired
+	// use the blocklist to fill in file_block_hash
+	// set the total block_count
+	// for each entry in file_block_hash
+	// emit a download request
+	TODO:
 }
 
 void FileManager::add_file_entry(QString file_name){
@@ -142,10 +222,12 @@ void FileManager::add_file_entry(QString file_name){
 		char temp[BLOCK_SIZE];
 		quint32 length = BLOCK_SIZE;
 		int read_len = in.readRawData(temp,length);
-		new_file.file_block[block_count].append(temp,length);
+		new_file.file_block[block_count].append(temp);
 		current_size += read_len;
 		// calculate the hash of this and append to block_list
-		new_file.blocklist.append(hash_sha1(new_file.file_block[block_count]));
+		QByteArray hash = hash_sha1(new_file.file_block[block_count]);
+		new_file.blocklist.append(hash);
+		new_file.file_block_hash[block_count] = hash;
 		block_count++;
 	}
 	new_file.block_count = block_count;

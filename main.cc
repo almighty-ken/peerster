@@ -241,10 +241,22 @@ int main(int argc, char **argv)
 	QObject::connect(&gnode, SIGNAL(file_query(QMap<QString, QVariant>)),
 		&fmanager,SLOT(received_query(QMap<QString, QVariant>)));
 
+	QObject::connect(&gnode, SIGNAL(block_requested(QString, QByteArray)),
+		&fmanager,SLOT(block_requested(QString, QByteArray)));
+
 	QObject::connect(&fmanager, SIGNAL(return_query(QString, 
 			QString, QVariantList, QVariantList)),
 		&gnode,SLOT(send_search_reply(QString, 
 			QString, QVariantList, QVariantList)));
+
+	QObject::connect(&fmanager, SIGNAL(send_block_req(QString, QByteArray)),
+		&gnode,SLOT(send_block_req(QString, QByteArray)));
+
+	QObject::connect(&fmanager, SIGNAL(send_block_reply(QString, QByteArray, QByteArray)),
+		&gnode,SLOT(send_block_reply(QString, QByteArray, QByteArray)));
+
+	QObject::connect(&gnode, SIGNAL(block_received(QString, QByteArray, QByteArray)),
+		&fmanager,SLOT(block_received(QString, QByteArray, QByteArray)));
 
 	QObject::connect(&gnode, SIGNAL(send_file2Dialog(QString)),
 		&dialog,SLOT(add_file_target(QString)));

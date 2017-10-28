@@ -33,8 +33,10 @@ typedef struct file_info{
 	QString source;
 	quint32 file_size;
 	quint16 block_count;
+	quint16 downloaded_block_count;
 	QByteArray blocklist;
 	QByteArray blocklist_hash;
+	QByteArray file_block_hash[MAX_BLOCKS]
 	QByteArray file_block[MAX_BLOCKS];
 }file_info;
 
@@ -153,18 +155,24 @@ class FileManager : public QObject
 		void received_query(QMap<QString, QVariant> query);
 		void file_option_add(QString file_name, QString source, QByteArray file_ID);
 		void file_download(QString file_name);
+		void block_received(QString source, QByteArray data, QByteArray hash);
+		void block_requested(QString dest, QByteArray hash);
 
 	signals:
 		void return_query(QString dest, 
 			QString search_reply, QVariantList match_names, QVariantList match_ids);
+		void send_block_req(QString dest, QByteArray hash);
+		void send_block_reply(QString dest, QByteArray hash, QByteArray data);
+
 
 	private:
 		QList<file_info> file_info_list;
 		QList<file_info> file_option_list;
 		void add_file_entry(QString file_name);
-		QString hash_sha1(QByteArray data);
+		QByteArray hash_sha1(QByteArray data);
 		void dump_file_list();
 		void dump_option_list();
+		void download_manager(int i);
 };
 
 class GNode : public QUdpSocket
@@ -197,6 +205,9 @@ class GNode : public QUdpSocket
 		void send_search_reply(QString dest, 
 			QString search_reply, QVariantList match_names, QVariantList match_ids);
 		void exec_search();
+		void send_block_req(QString dest, QByteArray hash);
+		void send_block_reply(QString dest, QByteArray hash, QByteArray data);
+
 
 	signals:
 		void send_message2Dialog(QString message);
@@ -206,6 +217,8 @@ class GNode : public QUdpSocket
 		void file_query(QMap<QString, QVariant> query);
 		void send_file2Dialog(QString file_name);
 		void send_file2Manager(QString file_name, QString source, QByteArray file_ID);
+		void block_received(QString source, QByteArray data, QByteArray hash);
+		void block_requested(QString dest, QByteArray hash);
 
 	private:
 		int myPortMin, myPortMax, myPort;
@@ -243,6 +256,8 @@ class GNode : public QUdpSocket
 		QByteArray add_shortcut_info(QMap<QString,QVariant>, QHostAddress, quint16);
 		void broadcast_search(QMap<QString,QVariant>);
 		void search_reply_proc(QMap<QString,QVariant>);
+		void block_reply_proc(QMap<QString,QVariant>);
+		void block_request_proc(QMap<QString,QVariant>);
 };
 
 #endif // PEERSTER_MAIN_HH
