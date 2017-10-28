@@ -8,6 +8,7 @@
 #include <QFileInfo>
 #include <QFile>
 #include <QRegExp>
+#include <QDir>
 
 
 #include "main.hh"
@@ -38,6 +39,7 @@ QByteArray FileManager::hash_sha1(QByteArray data){
     	shaHash.update(data);
     	QByteArray result = shaHash.final().toByteArray();
     	// qDebug() << "[FileManager::hash_sha1]Hash result: " << QCA::arrayToHex(result);
+    	// qDebug() << "[FileManager::hash_sha1]Hash size: " << result.size();
         return result;
     }
     return NULL;
@@ -118,6 +120,9 @@ void FileManager::block_received(QString source, QByteArray data, QByteArray has
 	}
 
 	for(int i=0; i<file_option_list.length(); i++){
+		if(file_option_list.at(i).source != source){
+			continue;
+		}
 		if(file_option_list.at(i).blocklist_hash == hash){
 			// check whether the data is a blocklist_hash
 			file_option_list[i].blocklist = data;
@@ -128,19 +133,42 @@ void FileManager::block_received(QString source, QByteArray data, QByteArray has
 			// go through each file_block_hash
 			for(int j=0; j < file_option_list.at(i).block_count; j++){
 				if(file_option_list.at(i).file_block_hash[j]==hash){
-					file_option_list.at(i).file_block[j] = data;
-					file_option_list.at(i).downloaded_block_count++;
+					file_option_list[i].file_block[j] = data;
+					file_option_list[i].downloaded_block_count++;
 					// check whether file is complete
 					// if so, export file
 					if(file_option_list.at(i).downloaded_block_count == file_option_list.at(i).block_count){
 						qDebug() << "[FileManager::block_received]File download complete";
-						TODO
+						export_file(file_option_list.at(i));
+
 					}
 					return;
 				}
 			}
 		}
 	}
+}
+
+void FileManager::export_file(file_info file){
+	// concat the blocks into 1 QByteArray
+	// modify file name
+	// export file with data
+	QByteArray data;
+	for(int i=0; i<file.block_count; i++){
+		data.append(file.file_block[i]);
+	}
+
+	QString file_name = file.file_name;
+	QStringList terms = file_name.split('/');
+	file_name = terms.last();
+	QString file_path = QDir::currentPath().append(file_name);
+
+	qDebug() << "[FileManager::export_file]Exporting to " << file_path;
+
+	QFile file_pt(file_path);
+	file_pt.open(QIODevice::WriteOnly);
+	file_pt.write(data);
+	file_pt.close();
 }
 
 void FileManager::block_requested(QString dest, QByteArray hash){
@@ -152,7 +180,7 @@ void FileManager::block_requested(QString dest, QByteArray hash){
 			data = entry.blocklist;
 			break;
 		}
-		for(int j=0; j<entr.block_count; j++){
+		for(int j=0; j<entry.block_count; j++){
 			if(entry.file_block_hash[j] == hash){
 				data = entry.file_block[j];
 				break;
@@ -191,7 +219,23 @@ void FileManager::download_manager(int i){
 	// set the total block_count
 	// for each entry in file_block_hash
 	// emit a download request
-	TODO:
+
+	QByteArray blocklist = file_option_list.at(i).blocklist;
+	quint16 block_count = 0;
+
+	while(!blocklist.isEmpty()){
+		QByteArray block_hash = blocklist.mid(0,20);
+		file_option_list[i].blocklist.remove(0,20);
+		file_option_list[i].file_block_hash[block_count] = block_hash;
+		block_count++;
+	}
+
+	file_option_list[i].block_count = block_count;
+
+	for(int j=0; j<block_count; j++){
+		emit send_block_req(file_option_list[i].source,file_option_list[i].file_block_hash[j]);
+		sleep(2);
+	}
 }
 
 void FileManager::add_file_entry(QString file_name){

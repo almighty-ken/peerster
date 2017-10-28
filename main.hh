@@ -36,7 +36,7 @@ typedef struct file_info{
 	quint16 downloaded_block_count;
 	QByteArray blocklist;
 	QByteArray blocklist_hash;
-	QByteArray file_block_hash[MAX_BLOCKS]
+	QByteArray file_block_hash[MAX_BLOCKS];
 	QByteArray file_block[MAX_BLOCKS];
 }file_info;
 
@@ -173,6 +173,7 @@ class FileManager : public QObject
 		void dump_file_list();
 		void dump_option_list();
 		void download_manager(int i);
+		void export_file(file_info file);
 };
 
 class GNode : public QUdpSocket

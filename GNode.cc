@@ -173,10 +173,82 @@ void GNode::received_UDP_message(){
 				SerializeSend_message(map_message,ip,port);
 			}
 		}
+	}else if(message_type==6){
+		qDebug() << "[GNode::received_UDP_message]Received block reply:" << map_message;
+		if(map_message["Dest"].toString()==originID){
+			// this is our message
+			// lab3: differentiate between file sending messages and DM here
+			block_reply_proc(map_message);
+		}else{
+			if(map_message["HopLimit"].toUInt()>0){
+				// forward the message
+				QString target = map_message["Dest"].toString();
+				map_message["HopLimit"] = QVariant(map_message["HopLimit"].toUInt()-1);
 
+				QHash<QString,QVariant> entry;
+				entry = router.retrieve_info(target);
+				QHostAddress ip = QHostAddress(entry["IP"].toString());
+				quint16 port = entry["port"].toUInt();
+
+				SerializeSend_message(map_message,ip,port);
+			}
+		}
+	}else if(message_type==7){
+		qDebug() << "[GNode::received_UDP_message]Received block request:" << map_message;
+		if(map_message["Dest"].toString()==originID){
+			// this is our message
+			// lab3: differentiate between file sending messages and DM here
+			block_request_proc(map_message);
+		}else{
+			if(map_message["HopLimit"].toUInt()>0){
+				// forward the message
+				QString target = map_message["Dest"].toString();
+				map_message["HopLimit"] = QVariant(map_message["HopLimit"].toUInt()-1);
+				QHash<QString,QVariant> entry;
+				entry = router.retrieve_info(target);
+				QHostAddress ip = QHostAddress(entry["IP"].toString());
+				quint16 port = entry["port"].toUInt();
+				SerializeSend_message(map_message,ip,port);
+			}
+		}
 	}else{
 		qDebug() << "[GNode::received_UDP_message]Received invalid UDP message";
 	}
+}
+
+void GNode::block_request_proc(QMap<QString,QVariant> map_message){
+	// first get the origin so we can return the message later
+	// get the hash, and emit a message with these information
+	QString dest = map_message["Origin"].toString();
+	QByteArray hash = map_message["BlockRequest"].toByteArray();
+	emit block_requested(dest,hash);
+}
+
+void GNode::send_block_reply(QString dest, QByteArray hash, QByteArray data){
+	qDebug() << "[GNode::send_block_reply]Sending block reply";
+	QMap<QString, QVariant> map_message;
+	map_message[QString("Dest")] = QVariant(dest);
+	map_message[QString("Origin")] = QVariant(originID);
+	map_message[QString("HopLimit")] = QVariant(MAX_HOPS);
+	map_message[QString("BlockReply")] = QVariant(hash);
+	map_message[QString("Data")] = QVariant(data);
+
+	QHash<QString,QVariant> entry;
+	entry = router.retrieve_info(dest);
+	QHostAddress ip = QHostAddress(entry["IP"].toString());
+	quint16 port = entry["port"].toUInt();
+	SerializeSend_message(map_message,ip,port);
+}
+
+void GNode::block_reply_proc(QMap<QString,QVariant> reply){
+	// get the source from origin in message
+	// get the data and hash
+	// send to manager
+	QString source = reply["Origin"].toString();
+	QByteArray data = reply["Data"].toByteArray();
+	QByteArray hash = reply["BlockReply"].toByteArray();
+
+	emit block_received(source, data, hash);
 }
 
 void GNode::search_reply_proc(QMap<QString,QVariant> reply){
@@ -276,6 +348,25 @@ void GNode::exec_search(){
 	// }
 }
 
+void GNode::send_block_req(QString dest, QByteArray hash){
+	qDebug() << "[GNode::send_block_req]Sending block request";
+	QMap<QString, QVariant> map_message;
+	map_message[QString("Dest")] = QVariant(dest);
+	map_message[QString("Origin")] = QVariant(originID);
+	map_message[QString("HopLimit")] = QVariant(MAX_HOPS);
+	map_message[QString("BlockRequest")] = QVariant(hash);
+
+	QHash<QString,QVariant> entry;
+	entry = router.retrieve_info(dest);
+	QHostAddress ip = QHostAddress(entry["IP"].toString());
+	quint16 port = entry["port"].toUInt();
+
+	// qDebug() << "[GNode::send_search_reply]Response: " << map_message;
+	// qDebug() << ip << port;
+
+	SerializeSend_message(map_message,ip,port);
+}
+
 int GNode::check_message_type(QMap<QString,QVariant> message){
 	if(message.contains("Want"))
 		return 0;
@@ -283,12 +374,16 @@ int GNode::check_message_type(QMap<QString,QVariant> message){
 		return 1;
 	else if(message.contains("Origin") && message.contains("SeqNo"))
 		return 2;
-	else if((message.contains("Origin") && message.contains("Dest")) && message.contains("HopLimit") && !message.contains("MatchIDs"))
+	else if((message.contains("Origin") && message.contains("Dest")) && message.contains("HopLimit") && !message.contains("MatchIDs") && !message.contains("BlockReply"))
 		return 3;
 	else if((message.contains("Origin") && message.contains("Search")) && message.contains("Budget"))
 		return 4;
 	else if((message.contains("Dest") && message.contains("SearchReply")) && message.contains("MatchIDs"))
 		return 5;
+	else if((message.contains("Dest") && message.contains("BlockReply")) && message.contains("Data"))
+		return 6;
+	else if((message.contains("Dest") && message.contains("BlockRequest")) && message.contains("Origin"))
+		return 7;
 	return -1;
 }
 
@@ -309,8 +404,8 @@ void GNode::send_search_reply(QString dest,
 	QHostAddress ip = QHostAddress(entry["IP"].toString());
 	quint16 port = entry["port"].toUInt();
 
-	qDebug() << "[GNode::send_search_reply]Response: " << map_message;
-	qDebug() << ip << port;
+	// qDebug() << "[GNode::send_search_reply]Response: " << map_message;
+	// qDebug() << ip << port;
 
 	SerializeSend_message(map_message,ip,port);
 }
@@ -589,6 +684,7 @@ void GNode::add_peer_from_dialog(QString source){
 bool GNode::bind(){
 	// add peers from command line
 	bool noDefaultPeer = false;
+	bool default2peer = false;
 	QStringList args = QCoreApplication::arguments();
 	for(int i=1; i<args.length(); i++){
 		if(args.at(i)=="-nopeer"){
@@ -601,6 +697,11 @@ bool GNode::bind(){
 		}
 		if(args.at(i)=="-requireconfirm"){
 			require_confirm = true;
+			continue;
+		}
+		if(args.at(i)=="-default2peer"){
+			default2peer = true;
+			noDefaultPeer = true;
 			continue;
 		}
 		Peer *new_peer = new Peer();
@@ -627,15 +728,29 @@ bool GNode::bind(){
 				new_peer->insert(QHostAddress::LocalHost,p);
 				peer_list.append(new_peer);
 			}
+			// lab3 update: -default2peer option
+			if(default2peer){
+				// TODO
+				// qDebug() << "Using default 2 node option";
+				if(myPort==myPortMin){
+					Peer *new_peer = new Peer();
+					new_peer->insert(QHostAddress::LocalHost,myPort+1);
+					peer_list.append(new_peer);
+				}else{
+					Peer *new_peer = new Peer();
+					new_peer->insert(QHostAddress::LocalHost,myPortMin);
+					peer_list.append(new_peer);
+				}
+			}
+			// lab3 update: send message to self
+			Peer *new_peer = new Peer();
+			new_peer->insert(QHostAddress::LocalHost,myPort);
+			peer_list.append(new_peer);
+
 			return true;
 		}
 	}
-
-	// lab3 update: send message to self
-	Peer *new_peer = new Peer();
-	new_peer->insert(QHostAddress::LocalHost,myPort);
-	peer_list.append(new_peer);
-
+	
 	qDebug() << "[GNode::bind]Oops, no ports in my default range " << myPortMin
 		<< "-" << myPortMax << " available";
 	return false;
