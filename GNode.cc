@@ -14,6 +14,7 @@
 #include "main.hh"
 
 #define MAX_HOPS 10
+#define MAX_BUDGET 3
 
 GNode::GNode(){
 	// Pick a range of four UDP ports to try to allocate by default,
@@ -88,7 +89,7 @@ void GNode::received_UDP_message(){
 	int message_type = check_message_type(map_message);
 	if(message_type == 0){
 		// this is a status message, which is a confirmation
-		qDebug() << "[GNode::received_UDP_message]Received status message:" << map_message;
+		// qDebug() << "[GNode::received_UDP_message]Received status message:" << map_message;
 
 		// now we should update waitlist
 		update_waitlist(address,port);
@@ -99,7 +100,7 @@ void GNode::received_UDP_message(){
 		// this is a chat rumor message
 		// now we should see if we already have the message
 		// if have seen, ignore, else start rumoring
-		qDebug() << "[GNode::received_UDP_message]Received rumor message:" << map_message;
+		// qDebug() << "[GNode::received_UDP_message]Received rumor message:" << map_message;
 		if(router.is_new_origin(map_message)){
 			emit add_dm_target(map_message["Origin"].toString());
 		}
@@ -123,12 +124,12 @@ void GNode::received_UDP_message(){
 		}
 		router.update_table(map_message,address,port);
 		datagram = add_shortcut_info(map_message,address,port);
-		qDebug() << "[GNode::received_UDP_message]Received route message:" << map_message;
+		// qDebug() << "[GNode::received_UDP_message]Received route message:" << map_message;
 		// enabling random_send here can cause big traffic between two nodes
 		random_send(datagram);
 	}else if(message_type==3){
 		// this is a DM
-		qDebug() << "[GNode::received_UDP_message]Received direct message:" << map_message;
+		// qDebug() << "[GNode::received_UDP_message]Received direct message:" << map_message;
 		if(map_message["Dest"].toString()==originID){
 			// this is our message
 			emit send_message2Dialog(map_message["ChatText"].toString());
@@ -147,6 +148,7 @@ void GNode::received_UDP_message(){
 
 		// emit a signal with message to FileManager
 		// FileManager returns a signal with info to send search reply
+		qDebug() << "[GNode::received_UDP_message]Received search request:" << map_message;
 		emit file_query(map_message);
 		broadcast_search(map_message);
 	}else if(message_type==5){
@@ -186,8 +188,6 @@ void GNode::search_reply_proc(QMap<QString,QVariant> reply){
 		emit send_file2Dialog(filenames.at(i).toString());
 		emit send_file2Manager(filenames.at(i).toString(), source, fileIDs.at(i).toByteArray());
 	}
-
-	
 }
 
 void GNode::broadcast_search(QMap<QString,QVariant> message){
@@ -225,7 +225,7 @@ void GNode::broadcast_search(QMap<QString,QVariant> message){
 
 void GNode::start_search(QString keywords){
 	// reset params
-	search_cnt = 2;
+	search_cnt = 1;
 
 	// we first parse the keywords, then
 	QMap<QString, QVariant> map_message;
@@ -238,7 +238,7 @@ void GNode::start_search(QString keywords){
 
 void GNode::exec_search(){
 	search_cnt = search_cnt*2;
-	if(search_cnt >= 100){
+	if(search_cnt >= MAX_BUDGET){
 		qDebug() << "[GNode::exec_search]Search ended";
 		// turn off timer
 		search_timer.stop();
@@ -283,7 +283,7 @@ int GNode::check_message_type(QMap<QString,QVariant> message){
 		return 1;
 	else if(message.contains("Origin") && message.contains("SeqNo"))
 		return 2;
-	else if((message.contains("Origin") && message.contains("Dest")) && message.contains("HopLimit"))
+	else if((message.contains("Origin") && message.contains("Dest")) && message.contains("HopLimit") && !message.contains("MatchIDs"))
 		return 3;
 	else if((message.contains("Origin") && message.contains("Search")) && message.contains("Budget"))
 		return 4;
@@ -308,6 +308,9 @@ void GNode::send_search_reply(QString dest,
 	entry = router.retrieve_info(dest);
 	QHostAddress ip = QHostAddress(entry["IP"].toString());
 	quint16 port = entry["port"].toUInt();
+
+	qDebug() << "[GNode::send_search_reply]Response: " << map_message;
+	qDebug() << ip << port;
 
 	SerializeSend_message(map_message,ip,port);
 }
@@ -463,7 +466,7 @@ void GNode::send_route_rumour(){
 		QDataStream * stream = new QDataStream(&data, QIODevice::WriteOnly);
 		(*stream) << map_message;
 	}
-	qDebug() << "[GNode::send_route_rumour]Route Rumor Generated";
+	// qDebug() << "[GNode::send_route_rumour]Route Rumor Generated";
 	all_send(data);
 }
 
@@ -488,8 +491,8 @@ void GNode::random_send(QByteArray data){
 	}
 	send_messageUDP(data,peer_list[idx]->host_addr,peer_list[idx]->host_port);
 
-	qDebug() << "[GNode::random_send]Message sent to " << peer_list[idx]->host_addr 
-		<< ":" << peer_list[idx]->host_port;
+	// qDebug() << "[GNode::random_send]Message sent to " << peer_list[idx]->host_addr 
+		// << ":" << peer_list[idx]->host_port;
 }
 
 void GNode::send_messageUDP(QByteArray data, QHostAddress addr, quint16 port){

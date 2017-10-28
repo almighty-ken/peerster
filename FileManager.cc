@@ -37,7 +37,7 @@ QString FileManager::hash_sha1(QByteArray data){
     	QCA::Hash shaHash("sha1");
     	shaHash.update(data);
     	QByteArray result = shaHash.final().toByteArray();
-    	qDebug() << "[FileManager::hash_sha1]Hash result: " << QCA::arrayToHex(result);
+    	// qDebug() << "[FileManager::hash_sha1]Hash result: " << QCA::arrayToHex(result);
         return result;
     }
     return NULL;
@@ -52,9 +52,18 @@ void FileManager::dump_file_list(){
 	}
 }
 
+void FileManager::dump_option_list(){
+	for(int i=0; i<file_option_list.length(); i++){
+		qDebug() << "[FileManager::dump_option_list]Entry " << i 
+			<< " of the list is:"
+			<< file_option_list.at(i).file_name;
+	}
+}
+
 void FileManager::received_query(QMap<QString, QVariant> query){
 
-	QList<file_info> file_info_list;
+	qDebug() << "[FileManager::received_query]Processing query";
+
 	QVariantList match_names;
 	QVariantList match_ids;
 
@@ -66,8 +75,11 @@ void FileManager::received_query(QMap<QString, QVariant> query){
 	for(int i=0; i<file_info_list.length(); i++){
 		QString name = file_info_list.at(i).file_name;
 		for(int j=0; j<terms.length(); j++){
-			if(name.toStdString().find(terms[j].toStdString()) != std::string::npos){
+			QRegExp rx(terms[j]);
+			// qDebug() << "search term name: " << terms[j];
+			if(rx.indexIn(name) != -1){
 				// is a match
+				qDebug() << "[FileManager::received_query]Match found!";
 				match_names.append(QVariant(name));
 				match_ids.append(QVariant(file_info_list.at(i).blocklist_hash));
 				break;
@@ -88,6 +100,7 @@ void FileManager::file_option_add(QString file_name, QString source, QByteArray 
 	new_entry.source = source;
 	new_entry.blocklist_hash = file_ID;
 	file_option_list.append(new_entry);
+	dump_option_list();
 }
 
 void FileManager::file_download(QString file_name){

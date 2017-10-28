@@ -164,6 +164,7 @@ class FileManager : public QObject
 		void add_file_entry(QString file_name);
 		QString hash_sha1(QByteArray data);
 		void dump_file_list();
+		void dump_option_list();
 };
 
 class GNode : public QUdpSocket
