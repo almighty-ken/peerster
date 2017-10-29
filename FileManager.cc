@@ -168,7 +168,7 @@ void FileManager::export_file(file_info file){
 	QString file_name = file.file_name;
 	QStringList terms = file_name.split('/');
 	file_name = terms.last();
-	QString file_path = QDir::currentPath().append(file_name);
+	QString file_path = QDir::currentPath().append('/' + file_name);
 
 	qDebug() << "[FileManager::export_file]Exporting to " << file_path;
 
