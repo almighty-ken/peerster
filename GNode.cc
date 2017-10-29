@@ -14,7 +14,7 @@
 #include "main.hh"
 
 #define MAX_HOPS 10
-#define MAX_BUDGET 3
+#define MAX_BUDGET 40
 
 GNode::GNode(){
 	// Pick a range of four UDP ports to try to allocate by default,
