@@ -31,7 +31,7 @@ GNode::GNode(){
 	require_confirm = false;
 
 	// generate a unique originID here
-	srand (time(NULL));
+	srand (time(NULL)+getpid());
 	originID = QHostInfo::localHostName();
 	originID.append(QString::number(rand()%1000));
 
@@ -221,6 +221,7 @@ void GNode::block_request_proc(QMap<QString,QVariant> map_message){
 	// get the hash, and emit a message with these information
 	QString dest = map_message["Origin"].toString();
 	QByteArray hash = map_message["BlockRequest"].toByteArray();
+	// qDebug() << ""
 	emit block_requested(dest,hash);
 }
 
@@ -257,7 +258,7 @@ void GNode::search_reply_proc(QMap<QString,QVariant> reply){
 	QString source = reply["Origin"].toString();
 
 	for(int i=0; i<filenames.length(); i++){
-		emit send_file2Dialog(filenames.at(i).toString());
+		// emit send_file2Dialog(filenames.at(i).toString());
 		emit send_file2Manager(filenames.at(i).toString(), source, fileIDs.at(i).toByteArray());
 	}
 }
@@ -361,8 +362,8 @@ void GNode::send_block_req(QString dest, QByteArray hash){
 	QHostAddress ip = QHostAddress(entry["IP"].toString());
 	quint16 port = entry["port"].toUInt();
 
-	// qDebug() << "[GNode::send_search_reply]Response: " << map_message;
-	// qDebug() << ip << port;
+	qDebug() << "[GNode::send_block_req]Resquest: " << map_message;
+	qDebug() << ip << port;
 
 	SerializeSend_message(map_message,ip,port);
 }
@@ -374,7 +375,8 @@ int GNode::check_message_type(QMap<QString,QVariant> message){
 		return 1;
 	else if(message.contains("Origin") && message.contains("SeqNo"))
 		return 2;
-	else if((message.contains("Origin") && message.contains("Dest")) && message.contains("HopLimit") && !message.contains("MatchIDs") && !message.contains("BlockReply"))
+	else if((message.contains("Origin") && message.contains("Dest")) && message.contains("HopLimit") 
+		&& !message.contains("MatchIDs") && !message.contains("BlockReply") && !message.contains("BlockRequest"))
 		return 3;
 	else if((message.contains("Origin") && message.contains("Search")) && message.contains("Budget"))
 		return 4;
@@ -572,7 +574,7 @@ void GNode::all_send(QByteArray data){
 	for(int i=0; i<peer_cnt; i++){
 		send_messageUDP(data,peer_list[i]->host_addr,peer_list[i]->host_port);
 	}
-	qDebug() << "[GNode::all_send]Message sent to all peers";
+	// qDebug() << "[GNode::all_send]Message sent to all peers";
 }
 
 void GNode::random_send(QByteArray data){
@@ -750,7 +752,7 @@ bool GNode::bind(){
 			return true;
 		}
 	}
-	
+
 	qDebug() << "[GNode::bind]Oops, no ports in my default range " << myPortMin
 		<< "-" << myPortMax << " available";
 	return false;

@@ -163,7 +163,7 @@ class FileManager : public QObject
 			QString search_reply, QVariantList match_names, QVariantList match_ids);
 		void send_block_req(QString dest, QByteArray hash);
 		void send_block_reply(QString dest, QByteArray hash, QByteArray data);
-
+		void send_file2Dialog(QString file_name);
 
 	private:
 		QList<file_info> file_info_list;
@@ -216,7 +216,7 @@ class GNode : public QUdpSocket
 		void send_originID(QString ID);
 
 		void file_query(QMap<QString, QVariant> query);
-		void send_file2Dialog(QString file_name);
+		
 		void send_file2Manager(QString file_name, QString source, QByteArray file_ID);
 		void block_received(QString source, QByteArray data, QByteArray hash);
 		void block_requested(QString dest, QByteArray hash);

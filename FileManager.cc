@@ -97,12 +97,19 @@ void FileManager::received_query(QMap<QString, QVariant> query){
 
 void FileManager::file_option_add(QString file_name, QString source, QByteArray file_ID){
 	// add this option to local option list
+	// go through all option and check ID unique
+	for(int i=0; i<file_option_list.length(); i++){
+		if(file_option_list.at(i).blocklist_hash == file_ID)
+			return;
+	}
 	file_info new_entry;
 	new_entry.file_name = file_name;
 	new_entry.source = source;
 	new_entry.downloaded_block_count = 0;
 	new_entry.blocklist_hash = file_ID;
 	file_option_list.append(new_entry);
+
+	emit send_file2Dialog(file_name);
 	dump_option_list();
 }
 
@@ -126,7 +133,7 @@ void FileManager::block_received(QString source, QByteArray data, QByteArray has
 		if(file_option_list.at(i).blocklist_hash == hash){
 			// check whether the data is a blocklist_hash
 			file_option_list[i].blocklist = data;
-			// decompose the blocklist call download manager
+			qDebug() << "[FileManager::block_received]Received Block is blocklist";
 			download_manager(i);
 			return;
 		}else{
@@ -220,12 +227,14 @@ void FileManager::download_manager(int i){
 	// for each entry in file_block_hash
 	// emit a download request
 
-	QByteArray blocklist = file_option_list.at(i).blocklist;
+	QByteArray blocklist = file_option_list[i].blocklist;
 	quint16 block_count = 0;
+
+	qDebug() << "HERE: " << blocklist;
 
 	while(!blocklist.isEmpty()){
 		QByteArray block_hash = blocklist.mid(0,20);
-		file_option_list[i].blocklist.remove(0,20);
+		blocklist.remove(0,20);
 		file_option_list[i].file_block_hash[block_count] = block_hash;
 		block_count++;
 	}

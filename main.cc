@@ -258,7 +258,7 @@ int main(int argc, char **argv)
 	QObject::connect(&gnode, SIGNAL(block_received(QString, QByteArray, QByteArray)),
 		&fmanager,SLOT(block_received(QString, QByteArray, QByteArray)));
 
-	QObject::connect(&gnode, SIGNAL(send_file2Dialog(QString)),
+	QObject::connect(&fmanager, SIGNAL(send_file2Dialog(QString)),
 		&dialog,SLOT(add_file_target(QString)));
 
 	QObject::connect(&gnode, SIGNAL(send_file2Manager(QString, QString, QByteArray)),
