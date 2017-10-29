@@ -79,6 +79,8 @@ class ChatDialog : public QDialog
 		// lab3
 		void add_file_target(QString file_name);
 		void download_prepare(QListWidgetItem* item);
+		void file_complete(QString file_name);
+		void clear_dialog_option();
 
 	signals:
 		void send_message(QString message);
@@ -164,6 +166,8 @@ class FileManager : public QObject
 		void send_block_req(QString dest, QByteArray hash);
 		void send_block_reply(QString dest, QByteArray hash, QByteArray data);
 		void send_file2Dialog(QString file_name);
+		void file_complete(QString file_name);
+		void clear_dialog_option();
 
 	private:
 		QList<file_info> file_info_list;

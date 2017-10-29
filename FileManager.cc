@@ -109,7 +109,10 @@ void FileManager::file_option_add(QString file_name, QString source, QByteArray 
 	new_entry.blocklist_hash = file_ID;
 	file_option_list.append(new_entry);
 
-	emit send_file2Dialog(file_name);
+	emit clear_dialog_option();
+	for(int i=0; i<file_option_list.length(); i++){
+		emit send_file2Dialog(file_option_list.at(i).file_name);
+	}
 	dump_option_list();
 }
 
@@ -147,7 +150,6 @@ void FileManager::block_received(QString source, QByteArray data, QByteArray has
 					if(file_option_list.at(i).downloaded_block_count == file_option_list.at(i).block_count){
 						qDebug() << "[FileManager::block_received]File download complete";
 						export_file(file_option_list.at(i));
-
 					}
 					return;
 				}
@@ -176,6 +178,8 @@ void FileManager::export_file(file_info file){
 	file_pt.open(QIODevice::WriteOnly);
 	file_pt.write(data);
 	file_pt.close();
+
+	emit file_complete(file_name);
 }
 
 void FileManager::block_requested(QString dest, QByteArray hash){

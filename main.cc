@@ -9,6 +9,7 @@
 #include <QDebug>
 #include <QKeyEvent>
 #include <QVariant>
+#include <QMessageBox>
 
 #include "main.hh"
 
@@ -166,6 +167,16 @@ void ChatDialog::pass_dm_signal(QString target,QString message){
 	emit send_dm(target,message,10);
 }
 
+void ChatDialog::clear_dialog_option(){
+	file_target->clear();
+}
+
+void ChatDialog::file_complete(QString file_name){
+	// show message box
+	QString message = "Your file " + file_name + " has been downloaded!";
+	QMessageBox::information(this,QWidget::windowTitle(),message);
+}
+
 void ChatDialog::gotReturnPressed()
 {
 	// Initially, just echo the string locally.
@@ -260,6 +271,12 @@ int main(int argc, char **argv)
 
 	QObject::connect(&fmanager, SIGNAL(send_file2Dialog(QString)),
 		&dialog,SLOT(add_file_target(QString)));
+
+	QObject::connect(&fmanager, SIGNAL(file_complete(QString)),
+		&dialog,SLOT(file_complete(QString)));
+
+	QObject::connect(&fmanager, SIGNAL(clear_dialog_option()),
+		&dialog,SLOT(clear_dialog_option()));
 
 	QObject::connect(&gnode, SIGNAL(send_file2Manager(QString, QString, QByteArray)),
 		&fmanager,SLOT(file_option_add(QString, QString, QByteArray)));
