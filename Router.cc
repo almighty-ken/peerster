@@ -16,7 +16,11 @@ Router::Router(){
 
 void Router::update_table(QMap<QString, QVariant> message,QHostAddress ip,quint16 port){
 	QString origin = message["Origin"].toString();
-	quint32 sequence = message["SeqNo"].toInt();
+	quint32 sequence;
+	if(message.contains("SeqNo"))
+		sequence = message["SeqNo"].toInt();
+	else
+		sequence = 0;
 
 	if(routing_table.contains(origin)){
 		// we see if the info in DB is older
@@ -88,7 +92,7 @@ QHash<QString,QVariant> Router::retrieve_info(QString origin){
 		return routing_table[origin];
 	}else{
 		// create a NULL entry
-		qDebug() << "[Router::retrieve_info]Retrieve info fail!";
+		qDebug() << "[Router::retrieve_info]Retrieve info fail! Cannot find " << origin;
 		QHash<QString,QVariant> empty;
 		return empty;
 	}

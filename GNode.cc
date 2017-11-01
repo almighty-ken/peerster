@@ -130,6 +130,7 @@ void GNode::received_UDP_message(){
 	}else if(message_type==3){
 		// this is a DM
 		// qDebug() << "[GNode::received_UDP_message]Received direct message:" << map_message;
+		router.update_table(map_message,address,port);
 		if(map_message["Dest"].toString()==originID){
 			// this is our message
 			emit send_message2Dialog(map_message["ChatText"].toString());
@@ -145,7 +146,6 @@ void GNode::received_UDP_message(){
 		}
 	}else if(message_type==4){
 		// this is search request, first locally process, then broadcast
-
 		// emit a signal with message to FileManager
 		// FileManager returns a signal with info to send search reply
 		qDebug() << "[GNode::received_UDP_message]Received search request:" << map_message;
@@ -154,10 +154,10 @@ void GNode::received_UDP_message(){
 	}else if(message_type==5){
 		// this is a search reply
 		// treat similarly to DM, forward or receive if dest
-		qDebug() << "[GNode::received_UDP_message]Received search reply:" << map_message;
+		router.update_table(map_message,address,port);
 		if(map_message["Dest"].toString()==originID){
 			// this is our message
-			// lab3: differentiate between file sending messages and DM here
+			qDebug() << "[GNode::received_UDP_message]Received search reply:" << map_message;
 			search_reply_proc(map_message);
 		}else{
 			if(map_message["HopLimit"].toUInt()>0){
@@ -174,10 +174,10 @@ void GNode::received_UDP_message(){
 			}
 		}
 	}else if(message_type==6){
-		qDebug() << "[GNode::received_UDP_message]Received block reply:" << map_message;
 		if(map_message["Dest"].toString()==originID){
 			// this is our message
 			// lab3: differentiate between file sending messages and DM here
+			qDebug() << "[GNode::received_UDP_message]Received block reply:" << map_message;
 			block_reply_proc(map_message);
 		}else{
 			if(map_message["HopLimit"].toUInt()>0){
@@ -194,10 +194,10 @@ void GNode::received_UDP_message(){
 			}
 		}
 	}else if(message_type==7){
-		qDebug() << "[GNode::received_UDP_message]Received block request:" << map_message;
 		if(map_message["Dest"].toString()==originID){
 			// this is our message
 			// lab3: differentiate between file sending messages and DM here
+			qDebug() << "[GNode::received_UDP_message]Received block request:" << map_message;
 			block_request_proc(map_message);
 		}else{
 			if(map_message["HopLimit"].toUInt()>0){
@@ -328,29 +328,9 @@ void GNode::exec_search(){
 	}
 
 	all_send(data);
-
-	// std::vector<int> idx;
-	// for(int i=0; i<peer_list.length(); i++){
-	// 	idx.push_back(i);
-	// }
-	// std::random_device rd;
-	// std:mt19937 g(rd());
-	// std::shuffle(v.begin(),v.end(),g);
-
-
-	// for(int i=0; i<peer_list.length(); i++){
-	// 	int dest = idx.back();
-	// 	idx.pop_back();
-	// 	if(i < leftover){
-	// 		// can have extra budget
-	// 		SerializeSend_message(map_message,peer_list[dest]->host_addr,peer_list[dest]->host_port);
-	// 	}
-	// 	SerializeSend_message(map_message,peer_list[dest]->host_addr,peer_list[dest]->host_port);
-	// }
 }
 
 void GNode::send_block_req(QString dest, QByteArray hash){
-	qDebug() << "[GNode::send_block_req]Sending block request";
 	QMap<QString, QVariant> map_message;
 	map_message[QString("Dest")] = QVariant(dest);
 	map_message[QString("Origin")] = QVariant(originID);
@@ -362,7 +342,7 @@ void GNode::send_block_req(QString dest, QByteArray hash){
 	QHostAddress ip = QHostAddress(entry["IP"].toString());
 	quint16 port = entry["port"].toUInt();
 
-	qDebug() << "[GNode::send_block_req]Resquest: " << map_message;
+	qDebug() << "[GNode::send_block_req]Request: " << map_message;
 	qDebug() << ip << port;
 
 	SerializeSend_message(map_message,ip,port);

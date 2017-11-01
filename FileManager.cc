@@ -234,8 +234,6 @@ void FileManager::download_manager(int i){
 	QByteArray blocklist = file_option_list[i].blocklist;
 	quint16 block_count = 0;
 
-	qDebug() << "HERE: " << blocklist;
-
 	while(!blocklist.isEmpty()){
 		QByteArray block_hash = blocklist.mid(0,20);
 		blocklist.remove(0,20);
@@ -249,6 +247,8 @@ void FileManager::download_manager(int i){
 		emit send_block_req(file_option_list[i].source,file_option_list[i].file_block_hash[j]);
 		sleep(2);
 	}
+
+	qDebug() << "[FileManager::download_manager] Emitted all block request";
 }
 
 void FileManager::add_file_entry(QString file_name){
